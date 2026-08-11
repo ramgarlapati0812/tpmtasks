@@ -236,53 +236,23 @@ def load_milestones(csv_path: Path) -> list[dict[str, Any]]:
     return milestones
 
 
-def fetch_jira_tasks(
-    platforms: list[dict[str, Any]],
-    field_mapping: dict[str, Any],
-) -> tuple[list[dict[str, Any]], list[str]]:
-    warnings: list[str] = []
-    base_url = os.environ.get(field_mapping["jira"]["base_url_env"], "").rstrip("/")
-    email = os.environ.get(field_mapping["jira"]["email_env"], "")
-    token = os.environ.get(field_mapping["jira"]["token_env"], "")
-    jql = os.environ.get(
-        field_mapping["jira"]["jql_env"],
-        field_mapping["jira"]["default_jql"],
-    )
-
-    if not all([base_url, email, token]):
-        raise RuntimeError(
-            "Jira mode requires JIRA_BASE_URL, JIRA_EMAIL, and JIRA_API_TOKEN env vars."
-        )
-
-    try:
-        import urllib.error
-        import urllib.parse
-        import urllib.request
-    except ImportError as exc:
-        raise RuntimeError("urllib is unavailable") from exc
-
-    auth_header = (
-        "Basic "
-        + __import__("base64").b64encode(f"{email}:{token}".encode()).decode()
-    )
-    headers = {
-        "Accept": "application/json",
-        "Authorization": auth_header,
-    }
-
-    jira_cfg = field_mapping["jira"]
-    platform_field = jira_cfg.get("platform_field", "customfield_10111")
-    fetch_fields = jira_cfg.get(
-        "fetch_fields",
-        ["summary", "status", "assignee", "priority", "duedate", "updated", "components", platform_field],
-    )
+def jira_search_issues(
+    base_url: str,
+    headers: dict[str, str],
+    jql: str,
+    fetch_fields: list[str],
+    max_results: int = 100,
+) -> list[dict[str, Any]]:
+    import urllib.error
+    import urllib.parse
+    import urllib.request
 
     issues: list[dict[str, Any]] = []
     next_page_token: str | None = None
     while True:
         params: dict[str, Any] = {
             "jql": jql,
-            "maxResults": 100,
+            "maxResults": max_results,
             "fields": ",".join(fetch_fields),
         }
         if next_page_token:
@@ -306,36 +276,125 @@ def fetch_jira_tasks(
         if not next_page_token:
             break
 
-    tasks: list[dict[str, Any]] = []
+    return issues
 
-    for issue in issues:
+
+def normalize_jira_issue(
+    issue: dict[str, Any],
+    platform_id: str,
+    epic_key: str = "",
+) -> dict[str, Any]:
+    fields = issue.get("fields", {})
+    assignee = fields.get("assignee") or {}
+    status = (fields.get("status") or {}).get("name", "To Do")
+    priority = (fields.get("priority") or {}).get("name", "Medium")
+    issue_type = (fields.get("issuetype") or {}).get("name", "")
+
+    return {
+        "platform": platform_id,
+        "id": issue.get("key", ""),
+        "title": fields.get("summary", ""),
+        "owner": assignee.get("displayName", "Unassigned"),
+        "status": status,
+        "priority": priority,
+        "target_date": parse_date(fields.get("duedate") or ""),
+        "blocker": status.lower() == "blocked",
+        "epic": epic_key,
+        "blocker_reason": "",
+        "updated_at": parse_date((fields.get("updated") or "")[:10]),
+        "issue_type": issue_type,
+    }
+
+
+def fetch_jira_tasks(
+    platforms: list[dict[str, Any]],
+    field_mapping: dict[str, Any],
+) -> tuple[list[dict[str, Any]], list[str]]:
+    warnings: list[str] = []
+    base_url = os.environ.get(field_mapping["jira"]["base_url_env"], "").rstrip("/")
+    email = os.environ.get(field_mapping["jira"]["email_env"], "")
+    token = os.environ.get(field_mapping["jira"]["token_env"], "")
+    jql = os.environ.get(
+        field_mapping["jira"]["jql_env"],
+        field_mapping["jira"]["default_jql"],
+    )
+
+    if not all([base_url, email, token]):
+        raise RuntimeError(
+            "Jira mode requires JIRA_BASE_URL, JIRA_EMAIL, and JIRA_API_TOKEN env vars."
+        )
+
+    auth_header = (
+        "Basic "
+        + __import__("base64").b64encode(f"{email}:{token}".encode()).decode()
+    )
+    headers = {
+        "Accept": "application/json",
+        "Authorization": auth_header,
+    }
+
+    jira_cfg = field_mapping["jira"]
+    platform_field = jira_cfg.get("platform_field", "customfield_10111")
+    fetch_fields = jira_cfg.get(
+        "fetch_fields",
+        ["summary", "status", "assignee", "priority", "duedate", "updated", "components", platform_field],
+    )
+    child_fetch_fields = jira_cfg.get(
+        "child_fetch_fields",
+        ["summary", "status", "assignee", "priority", "duedate", "updated", "issuetype", "parent"],
+    )
+    include_epic_children = jira_cfg.get("include_epic_children", True)
+
+    epic_issues = jira_search_issues(base_url, headers, jql, fetch_fields)
+    epic_platform: dict[str, str] = {}
+    epic_order: list[str] = []
+
+    for issue in epic_issues:
+        epic_key = issue.get("key", "")
         fields = issue.get("fields", {})
         platform_id = resolve_jira_platform(issue, fields, platforms, platform_field)
         if not platform_id:
             warnings.append(
-                f"Skipped Jira issue {issue.get('key')} — no matching platform group/component"
+                f"Skipped Jira issue {epic_key} — no matching platform group/component"
             )
             continue
+        epic_platform[epic_key] = platform_id
+        epic_order.append(epic_key)
 
-        assignee = fields.get("assignee") or {}
-        status = (fields.get("status") or {}).get("name", "To Do")
-        priority = (fields.get("priority") or {}).get("name", "Medium")
+    if not epic_order:
+        return [], warnings
 
-        tasks.append(
-            {
-                "platform": platform_id,
-                "id": issue.get("key", ""),
-                "title": fields.get("summary", ""),
-                "owner": assignee.get("displayName", "Unassigned"),
-                "status": status,
-                "priority": priority,
-                "target_date": parse_date(fields.get("duedate") or ""),
-                "blocker": status.lower() == "blocked",
-                "epic": "",
-                "blocker_reason": "",
-                "updated_at": parse_date((fields.get("updated") or "")[:10]),
-            }
+    tasks: list[dict[str, Any]] = []
+    children_by_epic: dict[str, list[dict[str, Any]]] = defaultdict(list)
+
+    if include_epic_children:
+        epic_keys = ", ".join(epic_order)
+        child_jql = f"parent in ({epic_keys}) ORDER BY priority DESC, key ASC"
+        child_issues = jira_search_issues(
+            base_url,
+            headers,
+            child_jql,
+            child_fetch_fields,
         )
+        for issue in child_issues:
+            fields = issue.get("fields", {})
+            parent = fields.get("parent") or {}
+            epic_key = parent.get("key", "")
+            platform_id = epic_platform.get(epic_key)
+            if not platform_id:
+                warnings.append(
+                    f"Skipped child issue {issue.get('key')} — parent epic {epic_key!r} not mapped"
+                )
+                continue
+            children_by_epic[epic_key].append(
+                normalize_jira_issue(issue, platform_id, epic_key=epic_key)
+            )
+
+    for epic_key in epic_order:
+        platform_id = epic_platform[epic_key]
+        epic_issue = next(issue for issue in epic_issues if issue.get("key") == epic_key)
+        tasks.append(normalize_jira_issue(epic_issue, platform_id))
+        tasks.extend(children_by_epic.get(epic_key, []))
 
     return tasks, warnings
 
@@ -395,21 +454,31 @@ def build_dashboard_payload(
     rollup_stats = compute_stats(tasks, next_milestone_date)
 
     platform_sections: dict[str, Any] = {}
+    priority_order = layout.get("priority_order", [])
+
+    def task_sort_key(task: dict[str, Any]) -> tuple[Any, ...]:
+        group_key = task.get("epic") or task.get("id", "")
+        is_child = bool(task.get("epic"))
+        priority_rank = (
+            priority_order.index(task["priority"])
+            if task["priority"] in priority_order
+            else 99
+        )
+        return (
+            group_key,
+            1 if is_child else 0,
+            priority_rank,
+            task.get("target_date") or "9999-12-31",
+            task.get("id", ""),
+        )
+
     for platform in platforms:
         platform_id = platform["id"]
         platform_tasks = grouped.get(platform_id, [])
         platform_sections[platform_id] = {
             "label": platform["label"],
             "stats": compute_stats(platform_tasks, next_milestone_date),
-            "tasks": sorted(
-                platform_tasks,
-                key=lambda t: (
-                    layout.get("priority_order", []).index(t["priority"])
-                    if t["priority"] in layout.get("priority_order", [])
-                    else 99,
-                    t.get("target_date") or "9999-12-31",
-                ),
-            ),
+            "tasks": sorted(platform_tasks, key=task_sort_key),
             "extra_fields": platform.get("extra_fields", []),
         }
 

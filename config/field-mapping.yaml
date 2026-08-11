@@ -55,6 +55,18 @@ jira:
     - updated
     - components
     - customfield_10111
+    - issuetype
+    - parent
+  child_fetch_fields:
+    - summary
+    - status
+    - assignee
+    - priority
+    - duedate
+    - updated
+    - issuetype
+    - parent
+  include_epic_children: true
   fields:
     id: key
     title: summary

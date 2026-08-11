@@ -123,6 +123,11 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     .links a:hover {{ text-decoration: underline; }}
     .ticket-link {{ color: var(--accent); text-decoration: none; }}
     .ticket-link:hover {{ text-decoration: underline; }}
+    .child-row td:first-child + td {{ padding-left: 24px; }}
+    .child-row td:nth-child(2)::before {{
+      content: "↳ ";
+      color: var(--muted);
+    }}
   </style>
 </head>
 <body>
@@ -203,28 +208,32 @@ def ticket_link(task_id: str) -> str:
 
 
 def task_table(tasks: list[dict], extra_fields: list[str], colors: dict[str, str]) -> str:
-    base_headers = ["ID", "Title", "Owner", "Status", "Priority", "Target Date", "Blocker", "Epic"]
+    base_headers = ["ID", "Title", "Type", "Owner", "Status", "Priority", "Target Date", "Blocker", "Epic"]
     extra_headers = [field.replace("_", " ").title() for field in extra_fields]
     headers = base_headers + extra_headers
 
     rows = []
     for task in tasks:
+        is_child = bool(task.get("epic"))
+        row_class = ' class="child-row"' if is_child else ""
+        epic_value = ticket_link(task.get("epic", "")) if task.get("epic") else "—"
         cells = [
             ticket_link(task.get("id", "")),
             task.get("title") or "—",
+            task.get("issue_type") or "—",
             task.get("owner") or "—",
             badge(task.get("status", ""), colors) if task.get("status") else "—",
             task.get("priority", ""),
             task.get("target_date") or "—",
             "Yes" if task.get("blocker") else "No",
-            task.get("epic") or "—",
+            epic_value,
         ]
         for field in extra_fields:
             cells.append(task.get(field) or "—")
-        rows.append("<tr>" + "".join(f"<td>{cell}</td>" for cell in cells) + "</tr>")
+        rows.append(f"<tr{row_class}>" + "".join(f"<td>{cell}</td>" for cell in cells) + "</tr>")
 
     thead = "<tr>" + "".join(f"<th>{header}</th>" for header in headers) + "</tr>"
-    tbody = "".join(rows) if rows else '<tr><td colspan="8">No tasks</td></tr>'
+    tbody = "".join(rows) if rows else f'<tr><td colspan="{len(headers)}">No tasks</td></tr>'
     return f"<table><thead>{thead}</thead><tbody>{tbody}</tbody></table>"
 
 
