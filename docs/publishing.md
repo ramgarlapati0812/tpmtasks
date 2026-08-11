@@ -4,11 +4,23 @@ The repo generates dashboard data and a standalone HTML preview. You can share t
 
 ## Shareable web link (GitHub Pages)
 
-After merging to `main`, GitHub Actions deploys the dashboard automatically.
+### Works now (no setup required)
+
+https://htmlpreview.github.io/?https://raw.githubusercontent.com/ramgarlapati0812/tpmtasks/main/canvas/promo-cta-dashboard.html
+
+This renders the latest dashboard HTML from the `main` branch. Share this link with your team immediately.
+
+### Production URL (recommended)
 
 **Live URL:** https://ramgarlapati0812.github.io/tpmtasks/
 
-To refresh the live site after updating task data:
+One-time setup (repo owner):
+
+1. Open [tpmtasks → Settings → Pages](https://github.com/ramgarlapati0812/tpmtasks/settings/pages)
+2. Set **Source** to **GitHub Actions**
+3. Re-run the **Deploy dashboard to GitHub Pages** workflow from the Actions tab
+
+After that, every push to `main` auto-deploys the dashboard.
 
 1. Merge your changes to `main`
 2. GitHub Actions rebuilds and redeploys (or run **Deploy dashboard to GitHub Pages** manually from the Actions tab)

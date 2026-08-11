@@ -14,7 +14,13 @@ python scripts/generate_dashboard.py
 
 Open [`canvas/promo-cta-dashboard.html`](canvas/promo-cta-dashboard.html) in a browser for a standalone preview.
 
-**Shareable link (after merge to `main`):** https://ramgarlapati0812.github.io/tpmtasks/
+**Shareable link (works now):**
+
+https://htmlpreview.github.io/?https://raw.githubusercontent.com/ramgarlapati0812/tpmtasks/main/canvas/promo-cta-dashboard.html
+
+**Production link (after enabling GitHub Pages):** https://ramgarlapati0812.github.io/tpmtasks/
+
+Enable Pages at [repo settings → Pages](https://github.com/ramgarlapati0812/tpmtasks/settings/pages) with source **GitHub Actions**, then re-run the deploy workflow.
 
 ## Regenerate in Cursor
 
