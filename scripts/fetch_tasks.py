@@ -45,8 +45,10 @@ def resolve_csv_column(row: dict[str, str], field: str, aliases: dict[str, list[
     normalized_row = {normalize_header(k): v for k, v in row.items()}
     for alias in alias_list:
         key = normalize_header(alias)
-        if key in normalized_row and normalized_row[key].strip():
-            return normalized_row[key].strip()
+        if key in normalized_row:
+            value = normalized_row[key]
+            if value is not None and str(value).strip():
+                return str(value).strip()
     return ""
 
 
@@ -137,9 +139,9 @@ def load_csv_tasks(
                 "platform": platform_id,
                 "id": resolve_csv_column(row, "id", aliases),
                 "title": resolve_csv_column(row, "title", aliases),
-                "owner": resolve_csv_column(row, "owner", aliases) or "Unassigned",
-                "status": resolve_csv_column(row, "status", aliases) or "To Do",
-                "priority": resolve_csv_column(row, "priority", aliases) or "Medium",
+                "owner": resolve_csv_column(row, "owner", aliases) or "",
+                "status": resolve_csv_column(row, "status", aliases) or "",
+                "priority": resolve_csv_column(row, "priority", aliases) or "",
                 "target_date": parse_date(resolve_csv_column(row, "target_date", aliases)),
                 "blocker": parse_bool(resolve_csv_column(row, "blocker", aliases)),
                 "epic": resolve_csv_column(row, "epic", aliases),
@@ -365,8 +367,9 @@ def build_dashboard_payload(
         "single_platform": layout.get("single_platform", False),
         "summary_label": summary_label,
         "data_note": (
-            "Task data sourced from local CSV. Connect Jira credentials to sync live ticket titles and statuses."
-            if platform_filter
+            "Android-only dashboard using the shared references: GCX-122275, PLAY-122964, "
+            "and the two Confluence pages. Jira fields will populate once credentials are configured."
+            if platform_filter == "android"
             else None
         ),
         "resources": extract_resources(layout),

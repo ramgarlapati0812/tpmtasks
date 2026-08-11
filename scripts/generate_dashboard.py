@@ -211,9 +211,9 @@ def task_table(tasks: list[dict], extra_fields: list[str], colors: dict[str, str
     for task in tasks:
         cells = [
             ticket_link(task.get("id", "")),
-            task.get("title", ""),
-            task.get("owner", ""),
-            badge(task.get("status", ""), colors),
+            task.get("title") or "—",
+            task.get("owner") or "—",
+            badge(task.get("status", ""), colors) if task.get("status") else "—",
             task.get("priority", ""),
             task.get("target_date") or "—",
             "Yes" if task.get("blocker") else "No",
@@ -291,19 +291,21 @@ def render_dashboard(data: dict[str, object]) -> str:
         milestones_html = "<p>No milestones configured.</p>"
 
     blockers = data.get("blockers", [])
+    show_platform_col = not data.get("single_platform", False)
     if blockers:
+        platform_header = "<th>Platform</th>" if show_platform_col else ""
         blockers_table_html = (
             "<table><thead><tr>"
-            "<th>Platform</th><th>ID</th><th>Title</th><th>Owner</th>"
+            f"{platform_header}<th>ID</th><th>Title</th><th>Owner</th>"
             "<th>Status</th><th>Reason</th><th>Target Date</th>"
             "</tr></thead><tbody>"
             + "".join(
                 "<tr>"
-                f"<td>{item['platform']}</td>"
-                f"<td>{ticket_link(item['id'])}</td>"
-                f"<td>{item['title']}</td>"
-                f"<td>{item['owner']}</td>"
-                f"<td>{badge(item['status'], colors)}</td>"
+                + (f"<td>{item['platform']}</td>" if show_platform_col else "")
+                + f"<td>{ticket_link(item['id'])}</td>"
+                f"<td>{item['title'] or '—'}</td>"
+                f"<td>{item['owner'] or '—'}</td>"
+                f"<td>{badge(item['status'], colors) if item['status'] else '—'}</td>"
                 f"<td>{item.get('blocker_reason') or '—'}</td>"
                 f"<td>{item.get('target_date') or '—'}</td>"
                 "</tr>"
@@ -312,26 +314,27 @@ def render_dashboard(data: dict[str, object]) -> str:
             + "</tbody></table>"
         )
     else:
-        blockers_table_html = "<p>No blockers 🎉</p>"
+        blockers_table_html = "<p>No blockers listed in shared references.</p>"
 
     activity = data.get("recent_activity", [])
     if activity:
+        platform_header = "<th>Platform</th>" if show_platform_col else ""
         activity_table_html = (
-            "<table><thead><tr><th>Date</th><th>ID</th><th>Title</th><th>Change</th><th>Platform</th></tr></thead><tbody>"
+            f"<table><thead><tr><th>Date</th><th>ID</th><th>Title</th><th>Change</th>{platform_header}</tr></thead><tbody>"
             + "".join(
                 "<tr>"
                 f"<td>{item['date']}</td>"
                 f"<td>{ticket_link(item['id'])}</td>"
-                f"<td>{item['title']}</td>"
+                f"<td>{item['title'] or '—'}</td>"
                 f"<td>{item['change']}</td>"
-                f"<td>{item['platform']}</td>"
-                "</tr>"
+                + (f"<td>{item['platform']}</td>" if show_platform_col else "")
+                + "</tr>"
                 for item in activity
             )
             + "</tbody></table>"
         )
     else:
-        activity_table_html = "<p>No recent activity in the last 7 days.</p>"
+        activity_table_html = "<p>No recent activity in shared references.</p>"
 
     warnings = data.get("warnings", [])
     warnings_html = ""
@@ -349,7 +352,7 @@ def render_dashboard(data: dict[str, object]) -> str:
             f'<a href="{item["url"]}" target="_blank" rel="noopener">{item["label"]}</a>'
             for item in resources
         )
-        resources_html = f'<section class="panel"><h2>Project Resources</h2><div class="links">{links}</div></section>'
+        resources_html = f'<section class="panel"><h2>References</h2><div class="links">{links}</div></section>'
     else:
         resources_html = ""
 

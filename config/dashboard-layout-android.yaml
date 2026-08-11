@@ -53,18 +53,16 @@ sections:
 
   - id: resources
     type: links
-    label: Project Resources
+    label: References
     links:
-      - label: GCX-122275 (Epic)
+      - label: GCX-122275
         url: https://wbdstreaming.atlassian.net/browse/GCX-122275
-      - label: PLAY-122964 (Player)
+      - label: PLAY-122964
         url: https://wbdstreaming.atlassian.net/browse/PLAY-122964
       - label: Confluence — Promo CTA Spec
         url: https://wbdstreaming.atlassian.net/wiki/x/KZm0zQ
       - label: Confluence — PLAY Android Page
         url: https://wbdstreaming.atlassian.net/wiki/spaces/PLAY/pages/3517941511
-      - label: Reference Dashboard
-        url: https://cursor.com/dashboard/shared-canvases?shareId=canvas-2F1oi-qm-uZnHt4gkDHFcXW8
 
 status_colors:
   Done: "#22c55e"
