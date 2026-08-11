@@ -1,0 +1,11 @@
+platform,id,title,owner,status,priority,target_date,blocker,epic,blocker_reason,updated_at,play_track,build_version,device_certification
+android,GCX-122275,Promo CTA Android — Feature delivery,TPM Team,In Progress,High,2026-08-28,No,Promo CTA Android,,2026-08-11,Internal,2.14.0,In Progress
+android,PLAY-122964,Player SDK — Promo CTA playback integration,Player Team,In Progress,High,2026-08-22,No,Promo CTA Android,,2026-08-10,Internal,2.14.0,Passed
+android,GCX-122276,Promo CTA carousel on Android home,Android Team,In Progress,High,2026-08-18,No,GCX-122275,,2026-08-09,Internal,2.14.0,Passed
+android,GCX-122277,Promo CTA deep link handling,Android Team,In Review,High,2026-08-20,No,GCX-122275,,2026-08-08,Internal,2.14.0,Passed
+android,GCX-122278,Analytics events for Promo CTA taps,Data Team,Blocked,High,2026-08-16,Yes,GCX-122275,Waiting on event schema approval,2026-08-11,Internal,2.14.0,Passed
+android,GCX-122279,Play Console screenshot & store listing update,Release Team,To Do,Medium,2026-08-25,No,GCX-122275,,2026-08-05,Closed testing,2.13.8,Passed
+android,GCX-122280,Android TV Promo CTA layout polish,Android TV Team,To Do,Medium,2026-08-22,No,GCX-122275,,2026-08-07,Internal,2.14.0,In Progress
+android,GCX-122281,QA regression — Promo CTA flows,QA Team,To Do,High,2026-08-24,No,GCX-122275,,2026-08-06,Internal,2.14.0,Not Started
+android,PLAY-122965,ExoPlayer overlay for Promo CTA pre-roll,Player Team,In Progress,High,2026-08-19,No,PLAY-122964,,2026-08-09,Internal,2.14.0,Passed
+android,PLAY-122966,Promo CTA dismiss / timeout behavior,Player Team,Done,Medium,2026-08-12,No,PLAY-122964,,2026-08-12,Internal,2.14.0,Passed

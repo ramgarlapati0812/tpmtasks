@@ -1,0 +1,81 @@
+title: Promo CTA Project Dashboard — Android
+subtitle: Android platform TPM tracker
+platform_filter: android
+single_platform: true
+
+sections:
+  - id: header
+    type: header
+    fields:
+      - project_title
+      - last_refreshed
+      - days_to_milestone
+
+  - id: summary
+    type: stat_row
+    label: Android Summary
+    stats:
+      - total_tasks
+      - complete
+      - in_progress
+      - blocked
+      - percent_complete
+      - days_to_milestone
+
+  - id: task_table
+    type: table
+    label: Android Tasks
+    columns:
+      - id
+      - title
+      - owner
+      - status
+      - priority
+      - target_date
+      - blocker
+      - epic
+      - play_track
+      - build_version
+      - device_certification
+
+  - id: milestones
+    type: timeline
+    label: Milestone Timeline
+
+  - id: risks
+    type: table
+    label: Risks and Blockers
+
+  - id: recent_activity
+    type: activity_feed
+    label: Recent Activity
+    window_days: 7
+
+  - id: resources
+    type: links
+    label: Project Resources
+    links:
+      - label: GCX-122275 (Epic)
+        url: https://wbdstreaming.atlassian.net/browse/GCX-122275
+      - label: PLAY-122964 (Player)
+        url: https://wbdstreaming.atlassian.net/browse/PLAY-122964
+      - label: Confluence — Promo CTA Spec
+        url: https://wbdstreaming.atlassian.net/wiki/x/KZm0zQ
+      - label: Confluence — PLAY Android Page
+        url: https://wbdstreaming.atlassian.net/wiki/spaces/PLAY/pages/3517941511
+      - label: Reference Dashboard
+        url: https://cursor.com/dashboard/shared-canvases?shareId=canvas-2F1oi-qm-uZnHt4gkDHFcXW8
+
+status_colors:
+  Done: "#22c55e"
+  Closed: "#22c55e"
+  "In Progress": "#3b82f6"
+  "In Review": "#8b5cf6"
+  Blocked: "#ef4444"
+  "To Do": "#94a3b8"
+
+priority_order:
+  - Highest
+  - High
+  - Medium
+  - Low

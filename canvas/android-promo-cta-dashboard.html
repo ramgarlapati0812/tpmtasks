@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Promo CTA Project Dashboard — Android</title>
+  <style>
+    :root {
+      --bg: #0b1020;
+      --panel: #121933;
+      --panel-2: #1a2444;
+      --text: #e5ecff;
+      --muted: #93a4c7;
+      --border: #2a3760;
+      --accent: #6ea8fe;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, sans-serif;
+      background: linear-gradient(180deg, #070b16 0%, var(--bg) 100%);
+      color: var(--text);
+      line-height: 1.5;
+    }
+    .container { max-width: 1280px; margin: 0 auto; padding: 24px; }
+    header { margin-bottom: 24px; }
+    h1 { margin: 0 0 8px; font-size: 1.75rem; }
+    .subtitle { color: var(--muted); margin: 0; }
+    .meta { color: var(--muted); font-size: 0.875rem; margin-top: 8px; }
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+    .stat {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px 16px;
+    }
+    .stat-label { color: var(--muted); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em; }
+    .stat-value { font-size: 1.5rem; font-weight: 700; margin-top: 4px; }
+    .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+    .tab {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 8px 14px;
+      border-radius: 999px;
+      cursor: pointer;
+    }
+    .tab.active { background: var(--accent); color: #081018; border-color: var(--accent); font-weight: 600; }
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 16px;
+      margin-bottom: 20px;
+    }
+    .panel h2 { margin: 0 0 12px; font-size: 1.1rem; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+    th, td { padding: 10px 8px; border-bottom: 1px solid var(--border); text-align: left; vertical-align: top; }
+    th { color: var(--muted); font-weight: 600; }
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      background: var(--panel-2);
+    }
+    .timeline { display: grid; gap: 10px; }
+    .milestone {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 10px 12px;
+      background: var(--panel-2);
+      border-radius: 10px;
+    }
+    .hidden { display: none; }
+    .warnings {
+      background: #3b1f1f;
+      border: 1px solid #7f1d1d;
+      color: #fecaca;
+      padding: 12px 14px;
+      border-radius: 10px;
+      margin-bottom: 16px;
+      font-size: 0.875rem;
+    }
+    .info {
+      background: #1e293b;
+      border: 1px solid #334155;
+      color: #cbd5e1;
+      padding: 12px 14px;
+      border-radius: 10px;
+      margin-bottom: 16px;
+      font-size: 0.875rem;
+    }
+    .links { display: grid; gap: 8px; }
+    .links a {
+      color: var(--accent);
+      text-decoration: none;
+      padding: 10px 12px;
+      background: var(--panel-2);
+      border-radius: 8px;
+      display: block;
+    }
+    .links a:hover { text-decoration: underline; }
+    .ticket-link { color: var(--accent); text-decoration: none; }
+    .ticket-link:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Promo CTA Project Dashboard — Android</h1>
+      <p class="subtitle">Android platform TPM tracker</p>
+      <p class="meta">Last refreshed: 2026-08-11T11:37:25.263153+00:00</p>
+    </header>
+
+    
+    <div class="info">Task data sourced from local CSV. Connect Jira credentials to sync live ticket titles and statuses.</div>
+
+    <section>
+      <h2>Android Summary</h2>
+      <div class="stats"><div class="stat"><div class="stat-label">Total Tasks</div><div class="stat-value">10</div></div>
+<div class="stat"><div class="stat-label">Complete</div><div class="stat-value">1</div></div>
+<div class="stat"><div class="stat-label">In Progress</div><div class="stat-value">5</div></div>
+<div class="stat"><div class="stat-label">Blocked</div><div class="stat-value">1</div></div>
+<div class="stat"><div class="stat-label">% Complete</div><div class="stat-value">10.0%</div></div>
+<div class="stat"><div class="stat-label">Days to Milestone</div><div class="stat-value">7</div></div></div>
+    </section>
+
+    <section class="panel"><h2>Android Tasks</h2><table><thead><tr><th>ID</th><th>Title</th><th>Owner</th><th>Status</th><th>Priority</th><th>Target Date</th><th>Blocker</th><th>Epic</th><th>Play Track</th><th>Build Version</th><th>Device Certification</th></tr></thead><tbody><tr><td><a class="ticket-link" href="https://wbdstreaming.atlassian.net/browse/GCX-122278" target="_blank" rel="noopener">GCX-122278</a></td><td>Analytics events for Promo CTA taps</td><td>Data Team</td><td><span class="badge" style="background:#ef4444; color:#081018">Blocked</span></td><td>High</td><td>2026-08-16</td><td>Yes</td><td>GCX-122275</td><td>Internal</td><td>2.14.0</td><td>Passed</td></tr><tr><td><a class="ticket-link" href="https://wbdstreaming.atlassian.net/browse/GCX-122276" target="_blank" rel="noopener">GCX-122276</a></td><td>Promo CTA carousel on Android home</td><td>Android Team</td><td><span class="badge" style="background:#3b82f6; color:#081018">In Progress</span></td><td>High</td><td>2026-08-18</td><td>No</td><td>GCX-122275</td><td>Internal</td><td>2.14.0</td><td>Passed</td></tr><tr><td><a class="ticket-link" href="https://wbdstreaming.atlassian.net/browse/PLAY-122965" target="_blank" rel="noopener">PLAY-122965</a></td><td>ExoPlayer overlay for Promo CTA pre-roll</td><td>Player Team</td><td><span class="badge" style="background:#3b82f6; color:#081018">In Progress</span></td><td>High</td><td>2026-08-19</td><td>No</td><td>PLAY-122964</td><td>Internal</td><td>2.14.0</td><td>Passed</td></tr><tr><td><a class="ticket-link" href="https://wbdstreaming.atlassian.net/browse/GCX-122277" target="_blank" rel="noopener">GCX-122277</a></td><td>Promo CTA deep link handling</td><td>Android Team</td><td><span class="badge" style="background:#8b5cf6; color:#081018">In Review</span></td><td>High</td><td>2026-08-20</td><td>No</td><td>GCX-122275</td><td>Internal</td><td>2.14.0</td><td>Passed</td></tr><tr><td><a class="ticket-link" href="https://wbdstreaming.atlassian.net/browse/PLAY-122964" target="_blank" rel="noopener">PLAY-122964</a></td><td>Player SDK — Promo CTA playback integration</td><td>Player Team</td><td><span class="badge" style="background:#3b82f6; color:#081018">In Progress</span></td><td>High</td><td>2026-08-22</td><td>No</td><td>Promo CTA Android</td><td>Internal</td><td>2.14.0</td><td>Passed</td></tr><tr><td><a class="ticket-link" href="https://wbdstreaming.atlassian.net/browse/GCX-122281" target="_blank" rel="noopener">GCX-122281</a></td><td>QA regression — Promo CTA flows</td><td>QA Team</td><td><span class="badge" style="background:#94a3b8; color:#081018">To Do</span></td><td>High</td><td>2026-08-24</td><td>No</td><td>GCX-122275</td><td>Internal</td><td>2.14.0</td><td>Not Started</td></tr><tr><td><a class="ticket-link" href="https://wbdstreaming.atlassian.net/browse/GCX-122275" target="_blank" rel="noopener">GCX-122275</a></td><td>Promo CTA Android — Feature delivery</td><td>TPM Team</td><td><span class="badge" style="background:#3b82f6; color:#081018">In Progress</span></td><td>High</td><td>2026-08-28</td><td>No</td><td>Promo CTA Android</td><td>Internal</td><td>2.14.0</td><td>In Progress</td></tr><tr><td><a class="ticket-link" href="https://wbdstreaming.atlassian.net/browse/PLAY-122966" target="_blank" rel="noopener">PLAY-122966</a></td><td>Promo CTA dismiss / timeout behavior</td><td>Player Team</td><td><span class="badge" style="background:#22c55e; color:#081018">Done</span></td><td>Medium</td><td>2026-08-12</td><td>No</td><td>PLAY-122964</td><td>Internal</td><td>2.14.0</td><td>Passed</td></tr><tr><td><a class="ticket-link" href="https://wbdstreaming.atlassian.net/browse/GCX-122280" target="_blank" rel="noopener">GCX-122280</a></td><td>Android TV Promo CTA layout polish</td><td>Android TV Team</td><td><span class="badge" style="background:#94a3b8; color:#081018">To Do</span></td><td>Medium</td><td>2026-08-22</td><td>No</td><td>GCX-122275</td><td>Internal</td><td>2.14.0</td><td>In Progress</td></tr><tr><td><a class="ticket-link" href="https://wbdstreaming.atlassian.net/browse/GCX-122279" target="_blank" rel="noopener">GCX-122279</a></td><td>Play Console screenshot & store listing update</td><td>Release Team</td><td><span class="badge" style="background:#94a3b8; color:#081018">To Do</span></td><td>Medium</td><td>2026-08-25</td><td>No</td><td>GCX-122275</td><td>Closed testing</td><td>2.13.8</td><td>Passed</td></tr></tbody></table></section>
+
+    <section class="panel">
+      <h2>Milestone Timeline</h2>
+      <div class="timeline"><div class="milestone"><span>Code freeze</span><span>2026-08-18 · android</span></div><div class="milestone"><span>QA sign-off</span><span>2026-08-22 · android</span></div><div class="milestone"><span>Play Store submission</span><span>2026-08-25 · android</span></div><div class="milestone"><span>Release</span><span>2026-08-28 · android</span></div></div>
+    </section>
+
+    <section class="panel">
+      <h2>Risks and Blockers</h2>
+      <table><thead><tr><th>Platform</th><th>ID</th><th>Title</th><th>Owner</th><th>Status</th><th>Reason</th><th>Target Date</th></tr></thead><tbody><tr><td>android</td><td><a class="ticket-link" href="https://wbdstreaming.atlassian.net/browse/GCX-122278" target="_blank" rel="noopener">GCX-122278</a></td><td>Analytics events for Promo CTA taps</td><td>Data Team</td><td><span class="badge" style="background:#ef4444; color:#081018">Blocked</span></td><td>Waiting on event schema approval</td><td>2026-08-16</td></tr></tbody></table>
+    </section>
+
+    <section class="panel">
+      <h2>Recent Activity</h2>
+      <table><thead><tr><th>Date</th><th>ID</th><th>Title</th><th>Change</th><th>Platform</th></tr></thead><tbody><tr><td>2026-08-12</td><td><a class="ticket-link" href="https://wbdstreaming.atlassian.net/browse/PLAY-122966" target="_blank" rel="noopener">PLAY-122966</a></td><td>Promo CTA dismiss / timeout behavior</td><td>Updated — status: Done</td><td>android</td></tr><tr><td>2026-08-11</td><td><a class="ticket-link" href="https://wbdstreaming.atlassian.net/browse/GCX-122275" target="_blank" rel="noopener">GCX-122275</a></td><td>Promo CTA Android — Feature delivery</td><td>Updated — status: In Progress</td><td>android</td></tr><tr><td>2026-08-11</td><td><a class="ticket-link" href="https://wbdstreaming.atlassian.net/browse/GCX-122278" target="_blank" rel="noopener">GCX-122278</a></td><td>Analytics events for Promo CTA taps</td><td>Updated — status: Blocked</td><td>android</td></tr><tr><td>2026-08-10</td><td><a class="ticket-link" href="https://wbdstreaming.atlassian.net/browse/PLAY-122964" target="_blank" rel="noopener">PLAY-122964</a></td><td>Player SDK — Promo CTA playback integration</td><td>Updated — status: In Progress</td><td>android</td></tr><tr><td>2026-08-09</td><td><a class="ticket-link" href="https://wbdstreaming.atlassian.net/browse/GCX-122276" target="_blank" rel="noopener">GCX-122276</a></td><td>Promo CTA carousel on Android home</td><td>Updated — status: In Progress</td><td>android</td></tr><tr><td>2026-08-09</td><td><a class="ticket-link" href="https://wbdstreaming.atlassian.net/browse/PLAY-122965" target="_blank" rel="noopener">PLAY-122965</a></td><td>ExoPlayer overlay for Promo CTA pre-roll</td><td>Updated — status: In Progress</td><td>android</td></tr><tr><td>2026-08-08</td><td><a class="ticket-link" href="https://wbdstreaming.atlassian.net/browse/GCX-122277" target="_blank" rel="noopener">GCX-122277</a></td><td>Promo CTA deep link handling</td><td>Updated — status: In Review</td><td>android</td></tr><tr><td>2026-08-07</td><td><a class="ticket-link" href="https://wbdstreaming.atlassian.net/browse/GCX-122280" target="_blank" rel="noopener">GCX-122280</a></td><td>Android TV Promo CTA layout polish</td><td>Updated — status: To Do</td><td>android</td></tr><tr><td>2026-08-06</td><td><a class="ticket-link" href="https://wbdstreaming.atlassian.net/browse/GCX-122281" target="_blank" rel="noopener">GCX-122281</a></td><td>QA regression — Promo CTA flows</td><td>Updated — status: To Do</td><td>android</td></tr><tr><td>2026-08-05</td><td><a class="ticket-link" href="https://wbdstreaming.atlassian.net/browse/GCX-122279" target="_blank" rel="noopener">GCX-122279</a></td><td>Play Console screenshot & store listing update</td><td>Updated — status: To Do</td><td>android</td></tr></tbody></table>
+    </section>
+
+    <section class="panel"><h2>Project Resources</h2><div class="links"><a href="https://wbdstreaming.atlassian.net/browse/GCX-122275" target="_blank" rel="noopener">GCX-122275 (Epic)</a><a href="https://wbdstreaming.atlassian.net/browse/PLAY-122964" target="_blank" rel="noopener">PLAY-122964 (Player)</a><a href="https://wbdstreaming.atlassian.net/wiki/x/KZm0zQ" target="_blank" rel="noopener">Confluence — Promo CTA Spec</a><a href="https://wbdstreaming.atlassian.net/wiki/spaces/PLAY/pages/3517941511" target="_blank" rel="noopener">Confluence — PLAY Android Page</a><a href="https://cursor.com/dashboard/shared-canvases?shareId=canvas-2F1oi-qm-uZnHt4gkDHFcXW8" target="_blank" rel="noopener">Reference Dashboard</a></div></section>
+  </div>
+
+  
+</body>
+</html>

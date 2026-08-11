@@ -102,6 +102,27 @@ HTML_TEMPLATE = """<!DOCTYPE html>
       margin-bottom: 16px;
       font-size: 0.875rem;
     }}
+    .info {{
+      background: #1e293b;
+      border: 1px solid #334155;
+      color: #cbd5e1;
+      padding: 12px 14px;
+      border-radius: 10px;
+      margin-bottom: 16px;
+      font-size: 0.875rem;
+    }}
+    .links {{ display: grid; gap: 8px; }}
+    .links a {{
+      color: var(--accent);
+      text-decoration: none;
+      padding: 10px 12px;
+      background: var(--panel-2);
+      border-radius: 8px;
+      display: block;
+    }}
+    .links a:hover {{ text-decoration: underline; }}
+    .ticket-link {{ color: var(--accent); text-decoration: none; }}
+    .ticket-link:hover {{ text-decoration: underline; }}
   </style>
 </head>
 <body>
@@ -113,17 +134,14 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     </header>
 
     {warnings_html}
+    {info_html}
 
     <section>
-      <h2>Overall Summary</h2>
+      <h2>{summary_label}</h2>
       <div class="stats">{rollup_stats_html}</div>
     </section>
 
-    <section class="panel">
-      <h2>Platform Tasks</h2>
-      <div class="tabs">{tabs_html}</div>
-      {platform_panels_html}
-    </section>
+    {platform_section_html}
 
     <section class="panel">
       <h2>Milestone Timeline</h2>
@@ -139,20 +157,11 @@ HTML_TEMPLATE = """<!DOCTYPE html>
       <h2>Recent Activity</h2>
       {activity_table_html}
     </section>
+
+    {resources_html}
   </div>
 
-  <script>
-    const tabs = document.querySelectorAll('.tab');
-    const panels = document.querySelectorAll('.platform-panel');
-    tabs.forEach(tab => {{
-      tab.addEventListener('click', () => {{
-        tabs.forEach(t => t.classList.remove('active'));
-        panels.forEach(p => p.classList.add('hidden'));
-        tab.classList.add('active');
-        document.getElementById('panel-' + tab.dataset.platform).classList.remove('hidden');
-      }});
-    }});
-  </script>
+  {tabs_script}
 </body>
 </html>
 """
@@ -186,6 +195,13 @@ def stat_cards(stats: dict) -> str:
     return "\n".join(cards)
 
 
+def ticket_link(task_id: str) -> str:
+    if "-" in task_id and task_id.split("-")[0].isalpha():
+        url = f"https://wbdstreaming.atlassian.net/browse/{task_id}"
+        return f'<a class="ticket-link" href="{url}" target="_blank" rel="noopener">{task_id}</a>'
+    return task_id
+
+
 def task_table(tasks: list[dict], extra_fields: list[str], colors: dict[str, str]) -> str:
     base_headers = ["ID", "Title", "Owner", "Status", "Priority", "Target Date", "Blocker", "Epic"]
     extra_headers = [field.replace("_", " ").title() for field in extra_fields]
@@ -194,7 +210,7 @@ def task_table(tasks: list[dict], extra_fields: list[str], colors: dict[str, str
     rows = []
     for task in tasks:
         cells = [
-            task.get("id", ""),
+            ticket_link(task.get("id", "")),
             task.get("title", ""),
             task.get("owner", ""),
             badge(task.get("status", ""), colors),
@@ -215,21 +231,54 @@ def task_table(tasks: list[dict], extra_fields: list[str], colors: dict[str, str
 def render_dashboard(data: dict[str, object]) -> str:
     colors = data.get("status_colors", {})
     rollup_stats_html = stat_cards(data["rollup"])
+    single_platform = data.get("single_platform", False)
+    summary_label = data.get("summary_label", "Overall Summary")
 
-    tabs = []
-    panels = []
-    for index, (platform_id, section) in enumerate(data["platforms"].items()):
-        active = " active" if index == 0 else ""
-        hidden = "" if index == 0 else " hidden"
-        tabs.append(
-            f'<button class="tab{active}" data-platform="{platform_id}">{section["label"]}</button>'
-        )
-        panels.append(
-            f'<div id="panel-{platform_id}" class="platform-panel{hidden}">'
-            f'<div class="stats">{stat_cards(section["stats"])}</div>'
+    if single_platform:
+        platform_id = next(iter(data["platforms"]))
+        section = data["platforms"][platform_id]
+        platform_section_html = (
+            '<section class="panel">'
+            f'<h2>{section["label"]} Tasks</h2>'
             f'{task_table(section["tasks"], section.get("extra_fields", []), colors)}'
-            f"</div>"
+            "</section>"
         )
+        tabs_script = ""
+    else:
+        tabs = []
+        panels = []
+        for index, (platform_id, section) in enumerate(data["platforms"].items()):
+            active = " active" if index == 0 else ""
+            hidden = "" if index == 0 else " hidden"
+            tabs.append(
+                f'<button class="tab{active}" data-platform="{platform_id}">{section["label"]}</button>'
+            )
+            panels.append(
+                f'<div id="panel-{platform_id}" class="platform-panel{hidden}">'
+                f'<div class="stats">{stat_cards(section["stats"])}</div>'
+                f'{task_table(section["tasks"], section.get("extra_fields", []), colors)}'
+                f"</div>"
+            )
+        platform_section_html = (
+            '<section class="panel">'
+            "<h2>Platform Tasks</h2>"
+            f'<div class="tabs">{"".join(tabs)}</div>'
+            f'{"".join(panels)}'
+            "</section>"
+        )
+        tabs_script = """
+  <script>
+    const tabs = document.querySelectorAll('.tab');
+    const panels = document.querySelectorAll('.platform-panel');
+    tabs.forEach(tab => {
+      tab.addEventListener('click', () => {
+        tabs.forEach(t => t.classList.remove('active'));
+        panels.forEach(p => p.classList.add('hidden'));
+        tab.classList.add('active');
+        document.getElementById('panel-' + tab.dataset.platform).classList.remove('hidden');
+      });
+    });
+  </script>"""
 
     milestones = data.get("milestones", [])
     if milestones:
@@ -251,7 +300,7 @@ def render_dashboard(data: dict[str, object]) -> str:
             + "".join(
                 "<tr>"
                 f"<td>{item['platform']}</td>"
-                f"<td>{item['id']}</td>"
+                f"<td>{ticket_link(item['id'])}</td>"
                 f"<td>{item['title']}</td>"
                 f"<td>{item['owner']}</td>"
                 f"<td>{badge(item['status'], colors)}</td>"
@@ -272,7 +321,7 @@ def render_dashboard(data: dict[str, object]) -> str:
             + "".join(
                 "<tr>"
                 f"<td>{item['date']}</td>"
-                f"<td>{item['id']}</td>"
+                f"<td>{ticket_link(item['id'])}</td>"
                 f"<td>{item['title']}</td>"
                 f"<td>{item['change']}</td>"
                 f"<td>{item['platform']}</td>"
@@ -290,17 +339,34 @@ def render_dashboard(data: dict[str, object]) -> str:
         items = "".join(f"<li>{warning}</li>" for warning in warnings[:5])
         warnings_html = f'<div class="warnings"><strong>Data warnings</strong><ul>{items}</ul></div>'
 
+    info_html = ""
+    if data.get("data_note"):
+        info_html = f'<div class="info">{data["data_note"]}</div>'
+
+    resources = data.get("resources", [])
+    if resources:
+        links = "".join(
+            f'<a href="{item["url"]}" target="_blank" rel="noopener">{item["label"]}</a>'
+            for item in resources
+        )
+        resources_html = f'<section class="panel"><h2>Project Resources</h2><div class="links">{links}</div></section>'
+    else:
+        resources_html = ""
+
     return HTML_TEMPLATE.format(
         title=data.get("title", "Dashboard"),
         subtitle=data.get("subtitle", ""),
         generated_at=data.get("generated_at", ""),
         warnings_html=warnings_html,
+        info_html=info_html,
+        summary_label=summary_label,
         rollup_stats_html=rollup_stats_html,
-        tabs_html="\n".join(tabs),
-        platform_panels_html="\n".join(panels),
+        platform_section_html=platform_section_html,
         milestones_html=milestones_html,
         blockers_table_html=blockers_table_html,
         activity_table_html=activity_table_html,
+        resources_html=resources_html,
+        tabs_script=tabs_script,
     )
 
 

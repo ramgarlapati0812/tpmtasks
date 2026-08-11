@@ -285,12 +285,28 @@ def build_recent_activity(tasks: list[dict[str, Any]], window_days: int = 7) -> 
     return activity
 
 
+def extract_resources(layout: dict[str, Any]) -> list[dict[str, str]]:
+    for section in layout.get("sections", []):
+        if section.get("type") == "links":
+            return section.get("links", [])
+    return []
+
+
 def build_dashboard_payload(
     tasks: list[dict[str, Any]],
     milestones: list[dict[str, Any]],
     platforms: list[dict[str, Any]],
     layout: dict[str, Any],
+    platform_filter: str | None = None,
 ) -> dict[str, Any]:
+    if platform_filter:
+        tasks = [task for task in tasks if task["platform"] == platform_filter]
+        platforms = [p for p in platforms if p["id"] == platform_filter]
+        milestones = [
+            milestone
+            for milestone in milestones
+            if milestone.get("platform") in {platform_filter, "all"}
+        ]
     grouped: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for task in tasks:
         grouped[task["platform"]].append(task)
@@ -336,10 +352,24 @@ def build_dashboard_payload(
         if section.get("id") == "recent_activity":
             window_days = section.get("window_days", 7)
 
+    summary_label = "Overall Summary"
+    for section in layout.get("sections", []):
+        if section.get("type") == "stat_row":
+            summary_label = section.get("label", summary_label)
+            break
+
     return {
         "title": layout.get("title", "Promo CTA Project Dashboard"),
         "subtitle": layout.get("subtitle", ""),
         "generated_at": datetime.now(timezone.utc).isoformat(),
+        "single_platform": layout.get("single_platform", False),
+        "summary_label": summary_label,
+        "data_note": (
+            "Task data sourced from local CSV. Connect Jira credentials to sync live ticket titles and statuses."
+            if platform_filter
+            else None
+        ),
+        "resources": extract_resources(layout),
         "rollup": rollup_stats,
         "platforms": platform_sections,
         "milestones": milestones,
@@ -382,13 +412,24 @@ def main() -> int:
         action="store_true",
         help="Pretty-print JSON",
     )
+    parser.add_argument(
+        "--layout",
+        type=Path,
+        default=CONFIG_DIR / "dashboard-layout.yaml",
+        help="Dashboard layout YAML path",
+    )
+    parser.add_argument(
+        "--platform",
+        help="Filter to a single platform id (apple, android, lightbeam, roku)",
+    )
     args = parser.parse_args()
 
     platforms_cfg = load_yaml(CONFIG_DIR / "platforms.yaml")
-    layout_cfg = load_yaml(CONFIG_DIR / "dashboard-layout.yaml")
+    layout_cfg = load_yaml(args.layout)
     mapping_cfg = load_yaml(CONFIG_DIR / "field-mapping.yaml")
 
     platforms = platforms_cfg.get("platforms", [])
+    platform_filter = args.platform or layout_cfg.get("platform_filter")
 
     if args.source == "csv":
         if not args.input.exists():
@@ -399,7 +440,13 @@ def main() -> int:
         tasks, warnings = fetch_jira_tasks(platforms, mapping_cfg)
 
     milestones = load_milestones(args.milestones)
-    payload = build_dashboard_payload(tasks, milestones, platforms, layout_cfg)
+    payload = build_dashboard_payload(
+        tasks,
+        milestones,
+        platforms,
+        layout_cfg,
+        platform_filter=platform_filter,
+    )
     payload["warnings"] = warnings
 
     args.output.parent.mkdir(parents=True, exist_ok=True)

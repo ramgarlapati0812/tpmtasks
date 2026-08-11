@@ -1,5 +1,6 @@
 # Generated dashboard data (refresh with scripts/fetch_tasks.py)
 data/dashboard.json
+data/android-dashboard.json
 
 # Secrets and local overrides
 .env
