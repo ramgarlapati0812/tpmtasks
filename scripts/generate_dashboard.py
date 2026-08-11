@@ -123,6 +123,32 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     .links a:hover {{ text-decoration: underline; }}
     .ticket-link {{ color: var(--accent); text-decoration: none; }}
     .ticket-link:hover {{ text-decoration: underline; }}
+    .child-row td:first-child + td {{ padding-left: 24px; }}
+    .child-row td:nth-child(2)::before {{
+      content: "↳ ";
+      color: var(--muted);
+    }}
+    .track-tabs {{
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin: 16px 0;
+    }}
+    .track-tab {{
+      background: var(--panel-2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 6px 12px;
+      border-radius: 999px;
+      cursor: pointer;
+      font-size: 0.875rem;
+    }}
+    .track-tab.active {{
+      background: var(--accent);
+      color: #081018;
+      border-color: var(--accent);
+      font-weight: 600;
+    }}
   </style>
 </head>
 <body>
@@ -203,29 +229,71 @@ def ticket_link(task_id: str) -> str:
 
 
 def task_table(tasks: list[dict], extra_fields: list[str], colors: dict[str, str]) -> str:
-    base_headers = ["ID", "Title", "Owner", "Status", "Priority", "Target Date", "Blocker", "Epic"]
+    base_headers = ["ID", "Title", "Type", "Owner", "Status", "Priority", "Target Date", "Blocker", "Epic"]
     extra_headers = [field.replace("_", " ").title() for field in extra_fields]
     headers = base_headers + extra_headers
 
     rows = []
     for task in tasks:
+        is_child = bool(task.get("epic"))
+        row_class = ' class="child-row"' if is_child else ""
+        epic_value = ticket_link(task.get("epic", "")) if task.get("epic") else "—"
         cells = [
             ticket_link(task.get("id", "")),
             task.get("title") or "—",
+            task.get("issue_type") or "—",
             task.get("owner") or "—",
             badge(task.get("status", ""), colors) if task.get("status") else "—",
             task.get("priority", ""),
             task.get("target_date") or "—",
             "Yes" if task.get("blocker") else "No",
-            task.get("epic") or "—",
+            epic_value,
         ]
         for field in extra_fields:
             cells.append(task.get(field) or "—")
-        rows.append("<tr>" + "".join(f"<td>{cell}</td>" for cell in cells) + "</tr>")
+        rows.append(f"<tr{row_class}>" + "".join(f"<td>{cell}</td>" for cell in cells) + "</tr>")
 
     thead = "<tr>" + "".join(f"<th>{header}</th>" for header in headers) + "</tr>"
-    tbody = "".join(rows) if rows else '<tr><td colspan="8">No tasks</td></tr>'
+    tbody = "".join(rows) if rows else f'<tr><td colspan="{len(headers)}">No tasks</td></tr>'
     return f"<table><thead>{thead}</thead><tbody>{tbody}</tbody></table>"
+
+
+def platform_track_sections(platform_id: str, section: dict, colors: dict[str, str]) -> str:
+    tracks = section.get("tracks") or {}
+    if not tracks:
+        return task_table(section.get("tasks", []), section.get("extra_fields", []), colors)
+
+    track_order = ("gcx", "psdk")
+    tabs = []
+    panels = []
+    visible_index = 0
+
+    for track_id in track_order:
+        track = tracks.get(track_id)
+        if not track:
+            continue
+        active = " active" if visible_index == 0 else ""
+        hidden = "" if visible_index == 0 else " hidden"
+        visible_index += 1
+        label = track.get("label", track_id.upper())
+        tabs.append(
+            f'<button type="button" class="track-tab{active}" '
+            f'data-track="{track_id}">{label}</button>'
+        )
+        panels.append(
+            f'<div id="track-{platform_id}-{track_id}" class="track-panel{hidden}">'
+            f'<div class="stats">{stat_cards(track.get("stats", {}))}</div>'
+            f'{task_table(track.get("tasks", []), section.get("extra_fields", []), colors)}'
+            f"</div>"
+        )
+
+    if not tabs:
+        return "<p>No tasks configured.</p>"
+
+    return (
+        f'<div class="track-tabs">{"".join(tabs)}</div>'
+        f'{"".join(panels)}'
+    )
 
 
 def render_dashboard(data: dict[str, object]) -> str:
@@ -251,12 +319,13 @@ def render_dashboard(data: dict[str, object]) -> str:
             active = " active" if index == 0 else ""
             hidden = "" if index == 0 else " hidden"
             tabs.append(
-                f'<button class="tab{active}" data-platform="{platform_id}">{section["label"]}</button>'
+                f'<button type="button" class="tab platform-tab{active}" '
+                f'data-platform="{platform_id}">{section["label"]}</button>'
             )
             panels.append(
                 f'<div id="panel-{platform_id}" class="platform-panel{hidden}">'
                 f'<div class="stats">{stat_cards(section["stats"])}</div>'
-                f'{task_table(section["tasks"], section.get("extra_fields", []), colors)}'
+                f'{platform_track_sections(platform_id, section, colors)}'
                 f"</div>"
             )
         platform_section_html = (
@@ -268,14 +337,24 @@ def render_dashboard(data: dict[str, object]) -> str:
         )
         tabs_script = """
   <script>
-    const tabs = document.querySelectorAll('.tab');
-    const panels = document.querySelectorAll('.platform-panel');
-    tabs.forEach(tab => {
+    document.querySelectorAll('.platform-tab').forEach(tab => {
       tab.addEventListener('click', () => {
-        tabs.forEach(t => t.classList.remove('active'));
-        panels.forEach(p => p.classList.add('hidden'));
+        document.querySelectorAll('.platform-tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.platform-panel').forEach(p => p.classList.add('hidden'));
         tab.classList.add('active');
         document.getElementById('panel-' + tab.dataset.platform).classList.remove('hidden');
+      });
+    });
+
+    document.querySelectorAll('.platform-panel').forEach(panel => {
+      panel.querySelectorAll('.track-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+          panel.querySelectorAll('.track-tab').forEach(t => t.classList.remove('active'));
+          panel.querySelectorAll('.track-panel').forEach(p => p.classList.add('hidden'));
+          tab.classList.add('active');
+          panel.querySelector('#track-' + panel.id.replace('panel-', '') + '-' + tab.dataset.track)
+            .classList.remove('hidden');
+        });
       });
     });
   </script>"""

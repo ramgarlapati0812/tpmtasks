@@ -45,6 +45,28 @@ jira:
   token_env: JIRA_API_TOKEN
   jql_env: JIRA_JQL
   default_jql: 'project = PROMO AND labels in (Apple, Android, Lightbeam, Roku) ORDER BY priority DESC'
+  platform_field: customfield_10111
+  fetch_fields:
+    - summary
+    - status
+    - assignee
+    - priority
+    - duedate
+    - updated
+    - components
+    - customfield_10111
+    - issuetype
+    - parent
+  child_fetch_fields:
+    - summary
+    - status
+    - assignee
+    - priority
+    - duedate
+    - updated
+    - issuetype
+    - parent
+  include_epic_children: true
   fields:
     id: key
     title: summary
@@ -53,7 +75,7 @@ jira:
     priority: priority.name
     target_date: duedate
     epic: customfield_10014
-    platform: components
+    platform: customfield_10111
 
 milestones:
   csv_file: data/milestones.csv

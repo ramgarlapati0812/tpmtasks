@@ -27,6 +27,22 @@ CONFIG_DIR = REPO_ROOT / "config"
 DEFAULT_TASKS_CSV = REPO_ROOT / "data" / "sample_tasks.csv"
 DEFAULT_MILESTONES_CSV = REPO_ROOT / "data" / "milestones.csv"
 DEFAULT_OUTPUT = REPO_ROOT / "data" / "dashboard.json"
+DEFAULT_ENV_FILE = REPO_ROOT / ".env"
+
+
+def load_env_file(path: Path = DEFAULT_ENV_FILE) -> None:
+    if not path.exists():
+        return
+    for line in path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        key = key.strip()
+        value = value.strip()
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in {"'", '"'}:
+            value = value[1:-1]
+        os.environ.setdefault(key, value)
 
 
 def load_yaml(path: Path) -> dict[str, Any]:
@@ -81,6 +97,44 @@ def match_platform(raw_platform: str, platforms: list[dict[str, Any]]) -> str | 
         for component in platform.get("jira_components", []):
             if token == component.lower():
                 return platform["id"]
+        for group in platform.get("jira_groups", []):
+            if token == group.lower():
+                return platform["id"]
+    return None
+
+
+def resolve_jira_platform(
+    issue: dict[str, Any],
+    fields: dict[str, Any],
+    platforms: list[dict[str, Any]],
+    platform_field: str,
+) -> str | None:
+    for component in fields.get("components", []):
+        platform_id = match_platform(component.get("name", ""), platforms)
+        if platform_id:
+            return platform_id
+
+    group_values = fields.get(platform_field) or []
+    if not isinstance(group_values, list):
+        group_values = [group_values]
+    for option in group_values:
+        value = option.get("value", "") if isinstance(option, dict) else str(option)
+        platform_id = match_platform(value, platforms)
+        if platform_id:
+            return platform_id
+
+    summary = fields.get("summary", "")
+    title_patterns = {
+        "apple": ["[gcx apple]", "gcx apple"],
+        "android": ["[gcx android]", "gcx android"],
+        "lightbeam": ["[gcx lb]", "[gcx lightbeam]", "gcx lightbeam", "gcx lb"],
+        "roku": ["[gcx roku]", "gcx roku"],
+    }
+    summary_lower = summary.lower()
+    for platform_id, patterns in title_patterns.items():
+        if any(pattern in summary_lower for pattern in patterns):
+            return platform_id
+
     return None
 
 
@@ -182,6 +236,107 @@ def load_milestones(csv_path: Path) -> list[dict[str, Any]]:
     return milestones
 
 
+def jira_search_issues(
+    base_url: str,
+    headers: dict[str, str],
+    jql: str,
+    fetch_fields: list[str],
+    max_results: int = 100,
+) -> list[dict[str, Any]]:
+    import urllib.error
+    import urllib.parse
+    import urllib.request
+
+    issues: list[dict[str, Any]] = []
+    next_page_token: str | None = None
+    while True:
+        params: dict[str, Any] = {
+            "jql": jql,
+            "maxResults": max_results,
+            "fields": ",".join(fetch_fields),
+        }
+        if next_page_token:
+            params["nextPageToken"] = next_page_token
+
+        query = urllib.parse.urlencode(params)
+        url = f"{base_url}/rest/api/3/search/jql?{query}"
+        request = urllib.request.Request(url, headers=headers)
+
+        try:
+            with urllib.request.urlopen(request, timeout=60) as response:
+                payload = json.loads(response.read().decode())
+        except urllib.error.HTTPError as exc:
+            detail = exc.read().decode() if exc.fp else ""
+            raise RuntimeError(f"Jira API error: {exc.code} {exc.reason} {detail}") from exc
+
+        issues.extend(payload.get("issues", []))
+        if payload.get("isLast", True):
+            break
+        next_page_token = payload.get("nextPageToken")
+        if not next_page_token:
+            break
+
+    return issues
+
+
+def normalize_jira_issue(
+    issue: dict[str, Any],
+    platform_id: str,
+    epic_key: str = "",
+    track: str = "",
+) -> dict[str, Any]:
+    fields = issue.get("fields", {})
+    assignee = fields.get("assignee") or {}
+    status = (fields.get("status") or {}).get("name", "To Do")
+    priority = (fields.get("priority") or {}).get("name", "Medium")
+    issue_type = (fields.get("issuetype") or {}).get("name", "")
+
+    return {
+        "platform": platform_id,
+        "track": track,
+        "id": issue.get("key", ""),
+        "title": fields.get("summary", ""),
+        "owner": assignee.get("displayName", "Unassigned"),
+        "status": status,
+        "priority": priority,
+        "target_date": parse_date(fields.get("duedate") or ""),
+        "blocker": status.lower() == "blocked",
+        "epic": epic_key,
+        "blocker_reason": "",
+        "updated_at": parse_date((fields.get("updated") or "")[:10]),
+        "issue_type": issue_type,
+    }
+
+
+def load_track_config() -> list[dict[str, Any]]:
+    path = CONFIG_DIR / "tracks.yaml"
+    if not path.exists():
+        return [
+            {"id": "gcx", "label": "GCX", "source": "jql"},
+            {"id": "psdk", "label": "PSDK", "epics_by_platform": {}},
+        ]
+    return load_yaml(path).get("tracks", [])
+
+
+def build_epic_tasks(
+    epic_issues: list[dict[str, Any]],
+    epic_order: list[str],
+    epic_platform: dict[str, str],
+    epic_track: dict[str, str],
+    children_by_epic: dict[str, list[dict[str, Any]]],
+) -> list[dict[str, Any]]:
+    tasks: list[dict[str, Any]] = []
+    for epic_key in epic_order:
+        platform_id = epic_platform[epic_key]
+        track = epic_track[epic_key]
+        epic_issue = next(issue for issue in epic_issues if issue.get("key") == epic_key)
+        tasks.append(normalize_jira_issue(epic_issue, platform_id, track=track))
+        for child in children_by_epic.get(epic_key, []):
+            child["track"] = track
+            tasks.append(child)
+    return tasks
+
+
 def fetch_jira_tasks(
     platforms: list[dict[str, Any]],
     field_mapping: dict[str, Any],
@@ -200,64 +355,106 @@ def fetch_jira_tasks(
             "Jira mode requires JIRA_BASE_URL, JIRA_EMAIL, and JIRA_API_TOKEN env vars."
         )
 
-    try:
-        import urllib.error
-        import urllib.parse
-        import urllib.request
-    except ImportError as exc:
-        raise RuntimeError("urllib is unavailable") from exc
-
-    query = urllib.parse.urlencode({"jql": jql, "maxResults": 200})
-    url = f"{base_url}/rest/api/3/search?{query}"
-    request = urllib.request.Request(
-        url,
-        headers={
-            "Accept": "application/json",
-            "Authorization": "Basic "
-            + __import__("base64").b64encode(f"{email}:{token}".encode()).decode(),
-        },
+    auth_header = (
+        "Basic "
+        + __import__("base64").b64encode(f"{email}:{token}".encode()).decode()
     )
+    headers = {
+        "Accept": "application/json",
+        "Authorization": auth_header,
+    }
 
-    try:
-        with urllib.request.urlopen(request, timeout=30) as response:
-            payload = json.loads(response.read().decode())
-    except urllib.error.HTTPError as exc:
-        raise RuntimeError(f"Jira API error: {exc.code} {exc.reason}") from exc
+    jira_cfg = field_mapping["jira"]
+    platform_field = jira_cfg.get("platform_field", "customfield_10111")
+    fetch_fields = jira_cfg.get(
+        "fetch_fields",
+        ["summary", "status", "assignee", "priority", "duedate", "updated", "components", platform_field],
+    )
+    child_fetch_fields = jira_cfg.get(
+        "child_fetch_fields",
+        ["summary", "status", "assignee", "priority", "duedate", "updated", "issuetype", "parent"],
+    )
+    include_epic_children = jira_cfg.get("include_epic_children", True)
+    track_defs = load_track_config()
 
-    tasks: list[dict[str, Any]] = []
-    jira_fields = field_mapping["jira"]["fields"]
+    epic_issues: list[dict[str, Any]] = []
+    epic_platform: dict[str, str] = {}
+    epic_track: dict[str, str] = {}
+    epic_order: list[str] = []
+    seen_epics: set[str] = set()
 
-    for issue in payload.get("issues", []):
+    def register_epic(issue: dict[str, Any], platform_id: str, track_id: str) -> None:
+        epic_key = issue.get("key", "")
+        if not epic_key or epic_key in seen_epics:
+            return
+        seen_epics.add(epic_key)
+        epic_issues.append(issue)
+        epic_platform[epic_key] = platform_id
+        epic_track[epic_key] = track_id
+        epic_order.append(epic_key)
+
+    gcx_epics = jira_search_issues(base_url, headers, jql, fetch_fields)
+    for issue in gcx_epics:
+        epic_key = issue.get("key", "")
         fields = issue.get("fields", {})
-        components = [c.get("name", "") for c in fields.get("components", [])]
-        platform_id = None
-        for component in components:
-            platform_id = match_platform(component, platforms)
-            if platform_id:
-                break
+        platform_id = resolve_jira_platform(issue, fields, platforms, platform_field)
         if not platform_id:
-            warnings.append(f"Skipped Jira issue {issue.get('key')} — no matching platform component")
+            warnings.append(
+                f"Skipped Jira issue {epic_key} — no matching platform group/component"
+            )
             continue
+        register_epic(issue, platform_id, "gcx")
 
-        assignee = fields.get("assignee") or {}
-        status = (fields.get("status") or {}).get("name", "To Do")
-        priority = (fields.get("priority") or {}).get("name", "Medium")
+    psdk_track = next((track for track in track_defs if track.get("id") == "psdk"), None)
+    psdk_epics_by_platform = (psdk_track or {}).get("epics_by_platform", {})
+    psdk_keys = [key for key in psdk_epics_by_platform.values() if key]
+    if psdk_keys:
+        psdk_jql = f"key in ({', '.join(psdk_keys)})"
+        psdk_epics = jira_search_issues(base_url, headers, psdk_jql, fetch_fields)
+        psdk_epic_map = {issue.get("key"): issue for issue in psdk_epics}
+        for platform_id, epic_key in psdk_epics_by_platform.items():
+            issue = psdk_epic_map.get(epic_key)
+            if not issue:
+                warnings.append(f"PSDK epic not found: {epic_key} ({platform_id})")
+                continue
+            register_epic(issue, platform_id, "psdk")
 
-        tasks.append(
-            {
-                "platform": platform_id,
-                "id": issue.get("key", ""),
-                "title": fields.get("summary", ""),
-                "owner": assignee.get("displayName", "Unassigned"),
-                "status": status,
-                "priority": priority,
-                "target_date": parse_date(fields.get("duedate") or ""),
-                "blocker": status.lower() == "blocked",
-                "epic": "",
-                "blocker_reason": "",
-                "updated_at": parse_date((fields.get("updated") or "")[:10]),
-            }
+    if not epic_order:
+        return [], warnings
+
+    children_by_epic: dict[str, list[dict[str, Any]]] = defaultdict(list)
+
+    if include_epic_children:
+        epic_keys = ", ".join(epic_order)
+        child_jql = f"parent in ({epic_keys}) ORDER BY priority DESC, key ASC"
+        child_issues = jira_search_issues(
+            base_url,
+            headers,
+            child_jql,
+            child_fetch_fields,
         )
+        for issue in child_issues:
+            fields = issue.get("fields", {})
+            parent = fields.get("parent") or {}
+            epic_key = parent.get("key", "")
+            platform_id = epic_platform.get(epic_key)
+            track_id = epic_track.get(epic_key, "")
+            if not platform_id:
+                warnings.append(
+                    f"Skipped child issue {issue.get('key')} — parent epic {epic_key!r} not mapped"
+                )
+                continue
+            children_by_epic[epic_key].append(
+                normalize_jira_issue(issue, platform_id, epic_key=epic_key, track=track_id)
+            )
+
+    tasks = build_epic_tasks(
+        epic_issues,
+        epic_order,
+        epic_platform,
+        epic_track,
+        children_by_epic,
+    )
 
     return tasks, warnings
 
@@ -317,21 +514,45 @@ def build_dashboard_payload(
     rollup_stats = compute_stats(tasks, next_milestone_date)
 
     platform_sections: dict[str, Any] = {}
+    priority_order = layout.get("priority_order", [])
+
+    def task_sort_key(task: dict[str, Any]) -> tuple[Any, ...]:
+        group_key = task.get("epic") or task.get("id", "")
+        is_child = bool(task.get("epic"))
+        priority_rank = (
+            priority_order.index(task["priority"])
+            if task["priority"] in priority_order
+            else 99
+        )
+        return (
+            group_key,
+            1 if is_child else 0,
+            priority_rank,
+            task.get("target_date") or "9999-12-31",
+            task.get("id", ""),
+        )
+
     for platform in platforms:
         platform_id = platform["id"]
         platform_tasks = grouped.get(platform_id, [])
+        track_defs = load_track_config()
+        track_sections: dict[str, Any] = {}
+        for track_def in track_defs:
+            track_id = track_def["id"]
+            track_tasks = [
+                task for task in platform_tasks if task.get("track", "gcx") == track_id
+            ]
+            track_sections[track_id] = {
+                "label": track_def.get("label", track_id.upper()),
+                "stats": compute_stats(track_tasks, next_milestone_date),
+                "tasks": sorted(track_tasks, key=task_sort_key),
+            }
+
         platform_sections[platform_id] = {
             "label": platform["label"],
             "stats": compute_stats(platform_tasks, next_milestone_date),
-            "tasks": sorted(
-                platform_tasks,
-                key=lambda t: (
-                    layout.get("priority_order", []).index(t["priority"])
-                    if t["priority"] in layout.get("priority_order", [])
-                    else 99,
-                    t.get("target_date") or "9999-12-31",
-                ),
-            ),
+            "tracks": track_sections,
+            "tasks": sorted(platform_tasks, key=task_sort_key),
             "extra_fields": platform.get("extra_fields", []),
         }
 
@@ -426,6 +647,8 @@ def main() -> int:
         help="Filter to a single platform id (apple, android, lightbeam, roku)",
     )
     args = parser.parse_args()
+
+    load_env_file()
 
     platforms_cfg = load_yaml(CONFIG_DIR / "platforms.yaml")
     layout_cfg = load_yaml(args.layout)
