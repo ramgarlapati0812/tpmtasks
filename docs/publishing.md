@@ -1,6 +1,33 @@
 # Publishing the Dashboard
 
-The repo generates dashboard data and a standalone HTML preview. To create a **Cursor shared canvas** (like the reference Promo Cta Project Dashboard), follow these steps in Cursor Desktop.
+The repo generates dashboard data and a standalone HTML preview. You can share the dashboard in two ways:
+
+## Shareable web link (GitHub Pages)
+
+After merging to `main`, GitHub Actions deploys the dashboard automatically.
+
+**Live URL:** https://ramgarlapati0812.github.io/tpmtasks/
+
+To refresh the live site after updating task data:
+
+1. Merge your changes to `main`
+2. GitHub Actions rebuilds and redeploys (or run **Deploy dashboard to GitHub Pages** manually from the Actions tab)
+
+To update data before deploy locally:
+
+```bash
+python3 scripts/fetch_tasks.py --pretty
+python3 scripts/generate_dashboard.py
+git add canvas/promo-cta-dashboard.html data/sample_tasks.csv
+git commit -m "Refresh dashboard data"
+git push
+```
+
+---
+
+## Cursor shared canvas
+
+To create a **Cursor shared canvas** (like the reference Promo Cta Project Dashboard), follow these steps in Cursor Desktop.
 
 ## 1. Refresh data
 

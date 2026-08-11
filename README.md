@@ -14,6 +14,8 @@ python scripts/generate_dashboard.py
 
 Open [`canvas/promo-cta-dashboard.html`](canvas/promo-cta-dashboard.html) in a browser for a standalone preview.
 
+**Shareable link (after merge to `main`):** https://ramgarlapati0812.github.io/tpmtasks/
+
 ## Regenerate in Cursor
 
 Ask the agent:
@@ -22,7 +24,7 @@ Ask the agent:
 
 Or invoke the skill at [`.cursor/skills/tpm-dashboard/SKILL.md`](.cursor/skills/tpm-dashboard/SKILL.md).
 
-To publish for the team, click **Publish** in the canvas toolbar after generation.
+To publish for the team, click **Publish** in the canvas toolbar after generation. See [`docs/publishing.md`](docs/publishing.md) for the full workflow.
 
 ## Repository layout
 
