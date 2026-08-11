@@ -1,0 +1,18 @@
+# Generated dashboard data (refresh with scripts/fetch_tasks.py)
+data/dashboard.json
+
+# Secrets and local overrides
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/

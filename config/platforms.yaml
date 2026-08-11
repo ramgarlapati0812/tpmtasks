@@ -1,0 +1,39 @@
+platforms:
+  - id: apple
+    label: Apple
+    targets: [iOS, tvOS, macOS]
+    jira_components: [Apple, iOS, tvOS, macOS]
+    csv_values: [apple, ios, tvos, macos]
+    extra_fields:
+      - store_status
+      - build_target
+      - testflight_status
+
+  - id: android
+    label: Android
+    targets: [Android, AndroidTV]
+    jira_components: [Android, AndroidTV]
+    csv_values: [android, androidtv]
+    extra_fields:
+      - play_track
+      - build_version
+      - device_certification
+
+  - id: lightbeam
+    label: Lightbeam
+    targets: [Lightbeam]
+    jira_components: [Lightbeam]
+    csv_values: [lightbeam]
+    extra_fields:
+      - release_channel
+      - deployment_environment
+
+  - id: roku
+    label: Roku
+    targets: [Roku]
+    jira_components: [Roku]
+    csv_values: [roku]
+    extra_fields:
+      - channel_certification
+      - sdk_version
+      - build_type

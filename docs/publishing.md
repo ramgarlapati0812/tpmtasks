@@ -1,0 +1,68 @@
+# Publishing the Dashboard
+
+The repo generates dashboard data and a standalone HTML preview. To create a **Cursor shared canvas** (like the reference Promo Cta Project Dashboard), follow these steps in Cursor Desktop.
+
+## 1. Refresh data
+
+```bash
+pip install -r requirements.txt
+python3 scripts/fetch_tasks.py --pretty
+```
+
+Replace `data/sample_tasks.csv` with your real export, or use Jira:
+
+```bash
+python3 scripts/fetch_tasks.py --source jira --pretty
+```
+
+## 2. Generate the canvas in Cursor Agent
+
+Open Cursor Agent and run:
+
+> Generate the Promo CTA TPM dashboard for Apple, Android, Lightbeam, and Roku using the tpm-dashboard skill
+
+The skill at [`.cursor/skills/tpm-dashboard/SKILL.md`](../.cursor/skills/tpm-dashboard/SKILL.md) instructs the agent to:
+
+1. Run `scripts/fetch_tasks.py`
+2. Read `data/dashboard.json`
+3. Render an interactive canvas with platform tabs, stats, milestones, blockers, and recent activity
+
+## 3. Iterate
+
+If layout or data looks wrong:
+
+- Adjust `config/dashboard-layout.yaml` or `config/platforms.yaml`
+- Re-run `python3 scripts/fetch_tasks.py --pretty`
+- Ask the agent to regenerate the canvas
+
+For a quick HTML preview without the canvas:
+
+```bash
+python3 scripts/generate_dashboard.py
+open canvas/promo-cta-dashboard.html
+```
+
+## 4. Publish shared canvas
+
+Once the canvas renders correctly:
+
+1. Open the canvas in Cursor
+2. Click **Publish** in the canvas toolbar
+3. Copy the shared URL for your team
+
+Requirements:
+
+- Pro, Teams, or Enterprise plan
+- Team-enabled account
+- Non-legacy privacy mode (Legacy Privacy Mode blocks publishing)
+
+Team admins can manage shared canvases at
+[Cursor Dashboard → Settings → Shared Canvases](https://cursor.com/dashboard/settings#shared-canvases).
+
+## 5. Keep data current
+
+| Frequency | Action |
+|-----------|--------|
+| Daily | Re-run `fetch_tasks.py` and ask agent to refresh canvas |
+| On export | Drop new CSV into `data/` and re-run scripts |
+| Automated | Schedule Jira fetch via CI or cron with env secrets |

@@ -1,0 +1,97 @@
+title: Promo CTA Project Dashboard
+subtitle: Multi-platform TPM tracker
+
+sections:
+  - id: header
+    type: header
+    fields:
+      - project_title
+      - last_refreshed
+      - days_to_milestone
+
+  - id: summary_rollup
+    type: stat_row
+    label: Overall
+    stats:
+      - total_tasks
+      - complete
+      - in_progress
+      - blocked
+      - percent_complete
+      - days_to_milestone
+
+  - id: platform_tabs
+    type: platform_tabs
+    platforms: [apple, android, lightbeam, roku]
+    per_platform:
+      - id: platform_summary
+        type: stat_row
+        stats:
+          - total_tasks
+          - complete
+          - in_progress
+          - blocked
+          - percent_complete
+      - id: task_table
+        type: table
+        columns:
+          - id
+          - title
+          - owner
+          - status
+          - priority
+          - target_date
+          - blocker
+          - epic
+        sort:
+          - field: priority
+            order: desc
+          - field: target_date
+            order: asc
+
+  - id: milestones
+    type: timeline
+    label: Milestone Timeline
+    events:
+      - code_freeze
+      - qa_signoff
+      - store_submission
+      - release
+
+  - id: risks
+    type: table
+    label: Risks and Blockers
+    filter:
+      blocker: true
+    columns:
+      - platform
+      - id
+      - title
+      - owner
+      - status
+      - blocker_reason
+      - target_date
+
+  - id: recent_activity
+    type: activity_feed
+    label: Recent Activity
+    window_days: 7
+    columns:
+      - date
+      - id
+      - title
+      - change
+
+status_colors:
+  Done: "#22c55e"
+  Closed: "#22c55e"
+  "In Progress": "#3b82f6"
+  "In Review": "#8b5cf6"
+  Blocked: "#ef4444"
+  "To Do": "#94a3b8"
+
+priority_order:
+  - Highest
+  - High
+  - Medium
+  - Low

@@ -1,0 +1,13 @@
+platform,id,title,owner,status,priority,target_date,blocker,epic,blocker_reason,updated_at,store_status,build_target,testflight_status,play_track,build_version,device_certification,release_channel,deployment_environment,channel_certification,sdk_version,build_type
+apple,PROMO-101,Implement promo CTA banner on home,Jane Doe,In Progress,High,2026-08-20,No,Promo CTA v1,,2026-08-08,In Review,iOS,Approved,,,,,,,
+apple,PROMO-102,TestFlight build for QA sign-off,John Smith,In Review,High,2026-08-15,No,Promo CTA v1,,2026-08-10,Submitted,tvOS,Waiting,,,,,,,
+apple,PROMO-103,App Store metadata update,Alice Lee,To Do,Medium,2026-08-25,No,Promo CTA v1,,2026-08-05,Draft,iOS,Not Started,,,,,,,
+android,PROMO-201,Promo CTA carousel on Android home,Bob Patel,In Progress,High,2026-08-18,No,Promo CTA v1,,2026-08-09,,, ,Internal,2.14.0,Passed,,,,
+android,PROMO-202,Play Console screenshot refresh,Maria Chen,Blocked,High,2026-08-14,Yes,Promo CTA v1,Waiting on legal copy approval,2026-08-11,,, ,Closed testing,2.13.8,Passed,,,,
+android,PROMO-203,Android TV layout polish,Dev Team,To Do,Medium,2026-08-22,No,Promo CTA v1,,2026-08-07,,, ,Internal,2.14.0,In Progress,,,,
+lightbeam,PROMO-301,Deploy promo module to staging,SRE Team,In Progress,High,2026-08-16,No,Promo CTA v1,,2026-08-10,,,,,,,Beta,staging-us-east,,
+lightbeam,PROMO-302,Validate feature flag rollout,Platform Eng,Done,Medium,2026-08-12,No,Promo CTA v1,,2026-08-12,,,,,,,GA,staging-us-east,,
+lightbeam,PROMO-303,Production cutover checklist,TPM Team,To Do,High,2026-08-28,No,Promo CTA v1,,2026-08-06,,,,,,,GA,production,,
+roku,PROMO-401,Roku promo tile implementation,Chris Wong,In Progress,High,2026-08-19,No,Promo CTA v1,,2026-08-08,,,,,,,,,In Review,11.5,sideload
+roku,PROMO-402,Channel store certification submission,Roku Team,To Do,High,2026-08-21,No,Promo CTA v1,,2026-08-05,,,,,,,,,Not Started,11.5,store
+roku,PROMO-403,Deep link QA for promo entry points,QA Team,Blocked,Medium,2026-08-17,Yes,Promo CTA v1,Blocked on analytics event schema,2026-08-11,,,,,,,,,In Review,11.5,sideload

@@ -1,0 +1,63 @@
+# Maps source columns to dashboard fields for CSV and Jira imports.
+
+csv:
+  required:
+    - platform
+    - id
+    - title
+    - status
+  optional:
+    - owner
+    - priority
+    - target_date
+    - blocker
+    - epic
+    - blocker_reason
+    - updated_at
+    - store_status
+    - build_target
+    - testflight_status
+    - play_track
+    - build_version
+    - device_certification
+    - release_channel
+    - deployment_environment
+    - channel_certification
+    - sdk_version
+    - build_type
+
+  aliases:
+    platform: [platform, Platform, component, Component]
+    id: [id, ID, key, Key, jira_key]
+    title: [title, Title, summary, Summary]
+    owner: [owner, Owner, assignee, Assignee]
+    status: [status, Status]
+    priority: [priority, Priority]
+    target_date: [target_date, Target Date, due_date, Due Date]
+    blocker: [blocker, Blocker, is_blocked]
+    epic: [epic, Epic, parent]
+    blocker_reason: [blocker_reason, Blocker Reason, blocker_description]
+    updated_at: [updated_at, Updated, last_updated]
+
+jira:
+  base_url_env: JIRA_BASE_URL
+  email_env: JIRA_EMAIL
+  token_env: JIRA_API_TOKEN
+  jql_env: JIRA_JQL
+  default_jql: 'project = PROMO AND labels in (Apple, Android, Lightbeam, Roku) ORDER BY priority DESC'
+  fields:
+    id: key
+    title: summary
+    owner: assignee.displayName
+    status: status.name
+    priority: priority.name
+    target_date: duedate
+    epic: customfield_10014
+    platform: components
+
+milestones:
+  csv_file: data/milestones.csv
+  columns:
+    - name
+    - date
+    - platform
