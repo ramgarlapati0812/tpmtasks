@@ -32,6 +32,9 @@ sections:
           - in_progress
           - blocked
           - percent_complete
+      - id: track_sections
+        type: track_tabs
+        tracks: [gcx, psdk]
       - id: task_table
         type: table
         columns:

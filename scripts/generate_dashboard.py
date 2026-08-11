@@ -128,6 +128,22 @@ HTML_TEMPLATE = """<!DOCTYPE html>
       content: "↳ ";
       color: var(--muted);
     }}
+    .track-section {{
+      margin-top: 20px;
+      padding-top: 4px;
+      border-top: 1px solid var(--border);
+    }}
+    .track-section:first-of-type {{
+      margin-top: 0;
+      padding-top: 0;
+      border-top: none;
+    }}
+    .track-section h3 {{
+      margin: 0 0 12px;
+      font-size: 1rem;
+      color: var(--accent);
+      letter-spacing: 0.02em;
+    }}
   </style>
 </head>
 <body>
@@ -237,6 +253,32 @@ def task_table(tasks: list[dict], extra_fields: list[str], colors: dict[str, str
     return f"<table><thead>{thead}</thead><tbody>{tbody}</tbody></table>"
 
 
+def platform_track_sections(section: dict, colors: dict[str, str]) -> str:
+    tracks = section.get("tracks") or {}
+    if not tracks:
+        return task_table(section.get("tasks", []), section.get("extra_fields", []), colors)
+
+    blocks = []
+    for track_id in ("gcx", "psdk"):
+        track = tracks.get(track_id)
+        if not track:
+            continue
+        stats_html = stat_cards(track.get("stats", {}))
+        table_html = task_table(
+            track.get("tasks", []),
+            section.get("extra_fields", []),
+            colors,
+        )
+        blocks.append(
+            f'<div class="track-section">'
+            f'<h3>{track.get("label", track_id.upper())}</h3>'
+            f'<div class="stats">{stats_html}</div>'
+            f"{table_html}"
+            f"</div>"
+        )
+    return "".join(blocks) if blocks else "<p>No tasks configured.</p>"
+
+
 def render_dashboard(data: dict[str, object]) -> str:
     colors = data.get("status_colors", {})
     rollup_stats_html = stat_cards(data["rollup"])
@@ -265,7 +307,7 @@ def render_dashboard(data: dict[str, object]) -> str:
             panels.append(
                 f'<div id="panel-{platform_id}" class="platform-panel{hidden}">'
                 f'<div class="stats">{stat_cards(section["stats"])}</div>'
-                f'{task_table(section["tasks"], section.get("extra_fields", []), colors)}'
+                f'{platform_track_sections(section, colors)}'
                 f"</div>"
             )
         platform_section_html = (

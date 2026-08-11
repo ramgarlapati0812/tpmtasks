@@ -283,6 +283,7 @@ def normalize_jira_issue(
     issue: dict[str, Any],
     platform_id: str,
     epic_key: str = "",
+    track: str = "",
 ) -> dict[str, Any]:
     fields = issue.get("fields", {})
     assignee = fields.get("assignee") or {}
@@ -292,6 +293,7 @@ def normalize_jira_issue(
 
     return {
         "platform": platform_id,
+        "track": track,
         "id": issue.get("key", ""),
         "title": fields.get("summary", ""),
         "owner": assignee.get("displayName", "Unassigned"),
@@ -304,6 +306,35 @@ def normalize_jira_issue(
         "updated_at": parse_date((fields.get("updated") or "")[:10]),
         "issue_type": issue_type,
     }
+
+
+def load_track_config() -> list[dict[str, Any]]:
+    path = CONFIG_DIR / "tracks.yaml"
+    if not path.exists():
+        return [
+            {"id": "gcx", "label": "GCX", "source": "jql"},
+            {"id": "psdk", "label": "PSDK", "epics_by_platform": {}},
+        ]
+    return load_yaml(path).get("tracks", [])
+
+
+def build_epic_tasks(
+    epic_issues: list[dict[str, Any]],
+    epic_order: list[str],
+    epic_platform: dict[str, str],
+    epic_track: dict[str, str],
+    children_by_epic: dict[str, list[dict[str, Any]]],
+) -> list[dict[str, Any]]:
+    tasks: list[dict[str, Any]] = []
+    for epic_key in epic_order:
+        platform_id = epic_platform[epic_key]
+        track = epic_track[epic_key]
+        epic_issue = next(issue for issue in epic_issues if issue.get("key") == epic_key)
+        tasks.append(normalize_jira_issue(epic_issue, platform_id, track=track))
+        for child in children_by_epic.get(epic_key, []):
+            child["track"] = track
+            tasks.append(child)
+    return tasks
 
 
 def fetch_jira_tasks(
@@ -344,12 +375,26 @@ def fetch_jira_tasks(
         ["summary", "status", "assignee", "priority", "duedate", "updated", "issuetype", "parent"],
     )
     include_epic_children = jira_cfg.get("include_epic_children", True)
+    track_defs = load_track_config()
 
-    epic_issues = jira_search_issues(base_url, headers, jql, fetch_fields)
+    epic_issues: list[dict[str, Any]] = []
     epic_platform: dict[str, str] = {}
+    epic_track: dict[str, str] = {}
     epic_order: list[str] = []
+    seen_epics: set[str] = set()
 
-    for issue in epic_issues:
+    def register_epic(issue: dict[str, Any], platform_id: str, track_id: str) -> None:
+        epic_key = issue.get("key", "")
+        if not epic_key or epic_key in seen_epics:
+            return
+        seen_epics.add(epic_key)
+        epic_issues.append(issue)
+        epic_platform[epic_key] = platform_id
+        epic_track[epic_key] = track_id
+        epic_order.append(epic_key)
+
+    gcx_epics = jira_search_issues(base_url, headers, jql, fetch_fields)
+    for issue in gcx_epics:
         epic_key = issue.get("key", "")
         fields = issue.get("fields", {})
         platform_id = resolve_jira_platform(issue, fields, platforms, platform_field)
@@ -358,13 +403,25 @@ def fetch_jira_tasks(
                 f"Skipped Jira issue {epic_key} — no matching platform group/component"
             )
             continue
-        epic_platform[epic_key] = platform_id
-        epic_order.append(epic_key)
+        register_epic(issue, platform_id, "gcx")
+
+    psdk_track = next((track for track in track_defs if track.get("id") == "psdk"), None)
+    psdk_epics_by_platform = (psdk_track or {}).get("epics_by_platform", {})
+    psdk_keys = [key for key in psdk_epics_by_platform.values() if key]
+    if psdk_keys:
+        psdk_jql = f"key in ({', '.join(psdk_keys)})"
+        psdk_epics = jira_search_issues(base_url, headers, psdk_jql, fetch_fields)
+        psdk_epic_map = {issue.get("key"): issue for issue in psdk_epics}
+        for platform_id, epic_key in psdk_epics_by_platform.items():
+            issue = psdk_epic_map.get(epic_key)
+            if not issue:
+                warnings.append(f"PSDK epic not found: {epic_key} ({platform_id})")
+                continue
+            register_epic(issue, platform_id, "psdk")
 
     if not epic_order:
         return [], warnings
 
-    tasks: list[dict[str, Any]] = []
     children_by_epic: dict[str, list[dict[str, Any]]] = defaultdict(list)
 
     if include_epic_children:
@@ -381,20 +438,23 @@ def fetch_jira_tasks(
             parent = fields.get("parent") or {}
             epic_key = parent.get("key", "")
             platform_id = epic_platform.get(epic_key)
+            track_id = epic_track.get(epic_key, "")
             if not platform_id:
                 warnings.append(
                     f"Skipped child issue {issue.get('key')} — parent epic {epic_key!r} not mapped"
                 )
                 continue
             children_by_epic[epic_key].append(
-                normalize_jira_issue(issue, platform_id, epic_key=epic_key)
+                normalize_jira_issue(issue, platform_id, epic_key=epic_key, track=track_id)
             )
 
-    for epic_key in epic_order:
-        platform_id = epic_platform[epic_key]
-        epic_issue = next(issue for issue in epic_issues if issue.get("key") == epic_key)
-        tasks.append(normalize_jira_issue(epic_issue, platform_id))
-        tasks.extend(children_by_epic.get(epic_key, []))
+    tasks = build_epic_tasks(
+        epic_issues,
+        epic_order,
+        epic_platform,
+        epic_track,
+        children_by_epic,
+    )
 
     return tasks, warnings
 
@@ -475,9 +535,23 @@ def build_dashboard_payload(
     for platform in platforms:
         platform_id = platform["id"]
         platform_tasks = grouped.get(platform_id, [])
+        track_defs = load_track_config()
+        track_sections: dict[str, Any] = {}
+        for track_def in track_defs:
+            track_id = track_def["id"]
+            track_tasks = [
+                task for task in platform_tasks if task.get("track", "gcx") == track_id
+            ]
+            track_sections[track_id] = {
+                "label": track_def.get("label", track_id.upper()),
+                "stats": compute_stats(track_tasks, next_milestone_date),
+                "tasks": sorted(track_tasks, key=task_sort_key),
+            }
+
         platform_sections[platform_id] = {
             "label": platform["label"],
             "stats": compute_stats(platform_tasks, next_milestone_date),
+            "tracks": track_sections,
             "tasks": sorted(platform_tasks, key=task_sort_key),
             "extra_fields": platform.get("extra_fields", []),
         }
