@@ -3,6 +3,7 @@ platforms:
     label: Apple
     targets: [iOS, tvOS, macOS]
     jira_components: [Apple, iOS, tvOS, macOS]
+    jira_groups: [GCX Apple, GCX APPLE]
     csv_values: [apple, ios, tvos, macos]
     extra_fields:
       - store_status
@@ -13,6 +14,7 @@ platforms:
     label: Android
     targets: [Android, AndroidTV]
     jira_components: [Android, AndroidTV]
+    jira_groups: [GCX Android, GCX ANDROID]
     csv_values: [android, androidtv]
     extra_fields:
       - play_track
@@ -23,6 +25,7 @@ platforms:
     label: Lightbeam
     targets: [Lightbeam]
     jira_components: [Lightbeam]
+    jira_groups: [GCX Lightbeam, GCX LIGHTBEAM, GCX LB]
     csv_values: [lightbeam]
     extra_fields:
       - release_channel
@@ -32,6 +35,7 @@ platforms:
     label: Roku
     targets: [Roku]
     jira_components: [Roku]
+    jira_groups: [GCX Roku, GCX ROKU]
     csv_values: [roku]
     extra_fields:
       - channel_certification

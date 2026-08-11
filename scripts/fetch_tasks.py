@@ -27,6 +27,22 @@ CONFIG_DIR = REPO_ROOT / "config"
 DEFAULT_TASKS_CSV = REPO_ROOT / "data" / "sample_tasks.csv"
 DEFAULT_MILESTONES_CSV = REPO_ROOT / "data" / "milestones.csv"
 DEFAULT_OUTPUT = REPO_ROOT / "data" / "dashboard.json"
+DEFAULT_ENV_FILE = REPO_ROOT / ".env"
+
+
+def load_env_file(path: Path = DEFAULT_ENV_FILE) -> None:
+    if not path.exists():
+        return
+    for line in path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        key = key.strip()
+        value = value.strip()
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in {"'", '"'}:
+            value = value[1:-1]
+        os.environ.setdefault(key, value)
 
 
 def load_yaml(path: Path) -> dict[str, Any]:
@@ -81,6 +97,44 @@ def match_platform(raw_platform: str, platforms: list[dict[str, Any]]) -> str | 
         for component in platform.get("jira_components", []):
             if token == component.lower():
                 return platform["id"]
+        for group in platform.get("jira_groups", []):
+            if token == group.lower():
+                return platform["id"]
+    return None
+
+
+def resolve_jira_platform(
+    issue: dict[str, Any],
+    fields: dict[str, Any],
+    platforms: list[dict[str, Any]],
+    platform_field: str,
+) -> str | None:
+    for component in fields.get("components", []):
+        platform_id = match_platform(component.get("name", ""), platforms)
+        if platform_id:
+            return platform_id
+
+    group_values = fields.get(platform_field) or []
+    if not isinstance(group_values, list):
+        group_values = [group_values]
+    for option in group_values:
+        value = option.get("value", "") if isinstance(option, dict) else str(option)
+        platform_id = match_platform(value, platforms)
+        if platform_id:
+            return platform_id
+
+    summary = fields.get("summary", "")
+    title_patterns = {
+        "apple": ["[gcx apple]", "gcx apple"],
+        "android": ["[gcx android]", "gcx android"],
+        "lightbeam": ["[gcx lb]", "[gcx lightbeam]", "gcx lightbeam", "gcx lb"],
+        "roku": ["[gcx roku]", "gcx roku"],
+    }
+    summary_lower = summary.lower()
+    for platform_id, patterns in title_patterns.items():
+        if any(pattern in summary_lower for pattern in patterns):
+            return platform_id
+
     return None
 
 
@@ -207,36 +261,60 @@ def fetch_jira_tasks(
     except ImportError as exc:
         raise RuntimeError("urllib is unavailable") from exc
 
-    query = urllib.parse.urlencode({"jql": jql, "maxResults": 200})
-    url = f"{base_url}/rest/api/3/search?{query}"
-    request = urllib.request.Request(
-        url,
-        headers={
-            "Accept": "application/json",
-            "Authorization": "Basic "
-            + __import__("base64").b64encode(f"{email}:{token}".encode()).decode(),
-        },
+    auth_header = (
+        "Basic "
+        + __import__("base64").b64encode(f"{email}:{token}".encode()).decode()
+    )
+    headers = {
+        "Accept": "application/json",
+        "Authorization": auth_header,
+    }
+
+    jira_cfg = field_mapping["jira"]
+    platform_field = jira_cfg.get("platform_field", "customfield_10111")
+    fetch_fields = jira_cfg.get(
+        "fetch_fields",
+        ["summary", "status", "assignee", "priority", "duedate", "updated", "components", platform_field],
     )
 
-    try:
-        with urllib.request.urlopen(request, timeout=30) as response:
-            payload = json.loads(response.read().decode())
-    except urllib.error.HTTPError as exc:
-        raise RuntimeError(f"Jira API error: {exc.code} {exc.reason}") from exc
+    issues: list[dict[str, Any]] = []
+    next_page_token: str | None = None
+    while True:
+        params: dict[str, Any] = {
+            "jql": jql,
+            "maxResults": 100,
+            "fields": ",".join(fetch_fields),
+        }
+        if next_page_token:
+            params["nextPageToken"] = next_page_token
+
+        query = urllib.parse.urlencode(params)
+        url = f"{base_url}/rest/api/3/search/jql?{query}"
+        request = urllib.request.Request(url, headers=headers)
+
+        try:
+            with urllib.request.urlopen(request, timeout=60) as response:
+                payload = json.loads(response.read().decode())
+        except urllib.error.HTTPError as exc:
+            detail = exc.read().decode() if exc.fp else ""
+            raise RuntimeError(f"Jira API error: {exc.code} {exc.reason} {detail}") from exc
+
+        issues.extend(payload.get("issues", []))
+        if payload.get("isLast", True):
+            break
+        next_page_token = payload.get("nextPageToken")
+        if not next_page_token:
+            break
 
     tasks: list[dict[str, Any]] = []
-    jira_fields = field_mapping["jira"]["fields"]
 
-    for issue in payload.get("issues", []):
+    for issue in issues:
         fields = issue.get("fields", {})
-        components = [c.get("name", "") for c in fields.get("components", [])]
-        platform_id = None
-        for component in components:
-            platform_id = match_platform(component, platforms)
-            if platform_id:
-                break
+        platform_id = resolve_jira_platform(issue, fields, platforms, platform_field)
         if not platform_id:
-            warnings.append(f"Skipped Jira issue {issue.get('key')} — no matching platform component")
+            warnings.append(
+                f"Skipped Jira issue {issue.get('key')} — no matching platform group/component"
+            )
             continue
 
         assignee = fields.get("assignee") or {}
@@ -426,6 +504,8 @@ def main() -> int:
         help="Filter to a single platform id (apple, android, lightbeam, roku)",
     )
     args = parser.parse_args()
+
+    load_env_file()
 
     platforms_cfg = load_yaml(CONFIG_DIR / "platforms.yaml")
     layout_cfg = load_yaml(args.layout)
