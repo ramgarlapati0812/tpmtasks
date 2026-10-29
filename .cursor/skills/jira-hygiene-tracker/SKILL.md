@@ -1,142 +1,112 @@
 ---
 name: jira-hygiene-tracker
-description: Audits Jira issues for missing hygiene-tracker required fields per GCX Confluence. Use when the user asks for Jira hygiene, missing required fields, hygiene tracker, field completeness, or GCX Jira field gaps.
+description: Audits GCX Epic hygiene (Lead TPM, dates, fix versions, Hard Deadline tag) using the GCX audit JQL and six execution rules from Confluence. Use when the user asks for Jira hygiene, hygiene tracker, missing required fields, or GCX Epic field gaps.
 ---
 
 # Jira Hygiene Tracker Skill
 
-Find Jira issues that are **missing required fields** for the **Jira hygiene tracker**, using rules documented on Confluence (GCX space). Do not guess field names or JQL — load them from the page (and linked pages) on each run.
+Audit **GCX Epics** for **Fields to Track Jira Hygine through execution** per GCX Confluence. Rules, audit JQL, and TPM roster are in [`reference.md`](reference.md).
 
 ## When to use
 
 Trigger this skill when the user asks to:
 
 - Run a **Jira hygiene** or **hygiene tracker** audit
-- List issues **missing required fields**
-- Check **field completeness** for GCX / WBD streaming Jira work
-- Report **gaps** before sprint review, planning, or status reporting
+- Find Epics **missing required fields** (Lead TPM, Target Delivery Date, Fix versions, Desired Date)
+- Check **P0** hygiene (Rules 2, 5, 6)
+- Report gaps for GCX TPM epics (`2026-Q4` scope in default JQL)
 
 ## Source of truth
 
 | Item | Value |
 |------|--------|
-| Confluence space | GCX |
-| Page title | Jira hygine tracker Fields |
-| Page URL | https://wbdstreaming.atlassian.net/wiki/spaces/GCX/pages/3818556096/Jira+hygine+tracker+Fields |
-| Page ID (`content_id`) | `3818556096` |
+| Confluence | https://wbdstreaming.atlassian.net/wiki/spaces/GCX/pages/3818556096/Jira+hygine+tracker+Fields |
+| Page ID | `3818556096` |
+| In-repo rules | [`reference.md`](reference.md) |
 
-If the live page and [`reference.md`](reference.md) disagree, **the live Confluence page wins**.
+If Confluence differs from `reference.md`, prefer **Confluence** and update `reference.md`.
 
 ## Prerequisites
 
-1. **Atlassian MCP** authenticated (`CallDynamicTool` → namespace `Atlassian` → `mcp_auth` if needed).
-2. Discover tools with `GetDynamicTools` for namespace `Atlassian` before calling them.
-3. Resolve `cloudId` once per run (from an Atlassian tool that lists sites/clouds, or from search results).
+1. **Atlassian MCP** authenticated (`mcp_auth` on namespace `Atlassian` if needed).
+2. `GetDynamicTools` for namespace `Atlassian` before Jira/Confluence calls.
+3. Resolve `cloudId` once per run.
 
 ## Workflow
 
-### 1. Load field rules from Confluence
+### 1. Load rules
 
-1. Fetch the canonical page as markdown:
-   - Tool pattern: `getConfluenceContent(cloudId, content_id="3818556096", content_format="markdown", detail="full")`
-   - Invoke via `CallDynamicTool` with the exact tool name/schema from `GetDynamicTools`.
-2. Parse the page for:
-   - **Required fields** (display name, custom field ID if listed, issue types / statuses where rules apply)
-   - **Optional vs required** distinctions and any **conditional** rules (e.g. only for Bugs, only when In Progress)
-   - **Project keys**, **issue types**, **workflows**, or **status** scopes
-   - **JQL** snippets or filter definitions provided on the page
-3. **Linked pages**: for each Confluence link referenced for extra rules (field definitions, hygiene process, JQL libraries), fetch with `getConfluenceContent` using that page’s ID from the URL (`/pages/<id>/`).
-4. **Update local cache (optional but recommended):** merge parsed rules into [`reference.md`](reference.md) with a “Last synced from Confluence” line (date + page version if available). Never add fields to `reference.md` that are not on Confluence.
+1. Read [`reference.md`](reference.md) for audit JQL, six rules, P0 priority, TPM list, and field names.
+2. Optionally refresh from Confluence: `getConfluenceContent(content_id="3818556096", content_format="markdown", detail="full")` and reconcile `reference.md`.
 
-If Confluence cannot be read, **stop** and tell the user to connect Atlassian MCP or paste the page content. Do not invent field IDs or required-field lists.
+### 2. Run audit JQL
 
-### 2. Build the hygiene checklist
+Use the **Audit JQL** from `reference.md` (default quarter `cf[10113] = 2026-Q4`). Override only when the user specifies another quarter or filter.
 
-From the parsed doc only, produce an internal checklist:
-
-```text
-For each rule:
-  - field_key or customfield_XXXXX (if documented)
-  - human-readable name
-  - scope: projects / issue types / statuses
-  - empty means: null, unset, "None", placeholder, or doc-defined invalid values
+```jql
+type = "Epic" AND status NOT IN (Done, Cancelled, "Ready for Release") AND cf[10111] IN ("GCX Android", "GCX APPLE", "GCX CDEV", "GCX Dotcom", "GCX LIGHTBEAM", "GCX ROKU", "GCX WEB", "GCX DWT Design Workflow and Tooling") AND cf[10113] = 2026-Q4 AND "Enabler[Dropdown]" != Bugs AND ("Target Release[Select List (multiple choices)]" NOT IN ("Tech Excellence Next Up", "Operational Excellence Next Up") or labels = tech-cross-platform)
 ```
 
-Respect any doc-specific definitions of “filled” (e.g. Epic Link required for Stories but not Tasks).
+Call `searchJiraIssuesUsingJql` with fields needed for all rules (see `reference.md`). Paginate until complete.
 
-### 3. Query Jira for candidates
+### 3. Evaluate rules per issue
 
-1. Start from **JQL on the Confluence page**. If none is given, ask the user for project/scope or use the narrowest JQL the page implies (e.g. single project key named on the page).
-2. Run search via Atlassian MCP, e.g. `searchJiraIssuesUsingJql(cloudId, jql, fields=[...])`, requesting at minimum:
-   - `key`, `summary`, `status`, `priority`, `assignee`, `issuetype`, `project`
-   - Every field ID/name from the hygiene checklist
-3. Paginate until the JQL result set is exhausted (respect tool `maxResults` / cursor limits).
+For each Epic, evaluate Rules 1–6 from `reference.md`:
 
-### 4. Detect gaps
+| Rule | Field | P0 |
+|------|-------|-----|
+| 1 | Lead TPM | |
+| 2 | Target Delivery Date | Yes |
+| 3 | Fix versions | |
+| 4 | Desired Date vs Target Delivery Date | |
+| 5 | Status (`New`/`Define` vs Desired Date within 5 weeks) | Yes |
+| 6 | Tag = Hard Deadline → Desired Date required | Yes |
 
-For each issue:
+Record **failed rule numbers** and human-readable **missing fields / violations** (not only empty fields — include date ordering and Rule 5 status lag).
 
-1. Apply only rules whose **scope** matches (project, issue type, status).
-2. Mark a field **missing** when empty per the Confluence definition.
-3. Collect `missing_fields` as stable identifiers (prefer `customfield_XXXXX` when documented, else exact Jira field name from the page).
+**Date math:** Use the user’s timezone for “today”; “5 weeks” = today + 35 calendar days unless Jira/site policy says otherwise.
 
-### 5. Report results
+**Tags/labels:** Treat **Hard Deadline** as documented on the page (label or Tag field — match however it appears on the issue).
 
-Deliver a structured report (markdown table or canvas for large sets).
+### 4. Report results
 
-**Summary block:**
+**Summary:**
 
 ```markdown
 # Jira hygiene report
 
-- **Scope:** [JQL used]
-- **Rules source:** [Confluence page 3818556096 + linked page titles]
+- **JQL:** [audit JQL used]
 - **Issues scanned:** N
-- **Issues with gaps:** M
+- **Issues with any failure:** M
+- **P0 failures (Rules 2, 5, 6):** K
 - **Generated:** [timestamp, user timezone]
 ```
 
-**Per-issue table (required columns):**
+**Per-issue table:**
 
-| Issue key | Summary | Status | Priority | Assignee | Missing fields |
-|-----------|---------|--------|----------|----------|----------------|
-| PROJ-123 | … | In Progress | High | Name | Field A, customfield_10001 |
+| Issue key | Summary | Status | Priority | Assignee | Lead TPM | Failed rules | P0? | Violations |
+|-----------|---------|--------|----------|----------|----------|--------------|-----|------------|
 
-**Optional groupings** (when useful):
+- **Failed rules:** comma-separated rule numbers (e.g. `2, 5`)
+- **Violations:** short text (e.g. `Target Delivery Date empty`, `Desired Date before Target Delivery Date`, `New with Desired Date within 5 weeks`)
 
-- By assignee (who needs to fix the most gaps)
-- By missing field (systemic gaps)
-- By priority / status
+**Optional:** group by assignee or Lead TPM; add TPM roster from `reference.md` when reporting team-wide hygiene.
 
-**Quality checks before sending:**
+### 5. Quality checks
 
-- [ ] Every “missing” field appears on the Confluence-derived checklist
-- [ ] JQL and scope match the documentation (no extra projects/issue types unless user asked)
-- [ ] Linked Confluence pages were fetched when the main page references them for field definitions
-- [ ] No fabricated custom field IDs
+- [ ] Audit JQL matches `reference.md` unless user changed scope
+- [ ] All six rules applied; P0 called out
+- [ ] No rules invented beyond Confluence / `reference.md`
+- [ ] Confluence re-fetched when user says rules changed
 
 ## Atlassian MCP quick reference
 
-Use `GetDynamicTools` for authoritative schemas. Common tools (names may vary slightly):
-
 | Goal | Typical tool |
 |------|----------------|
-| Cross-system lookup | `search` (natural language query — not JQL/CQL) |
-| Confluence by ID | `getConfluenceContent` |
-| Confluence search | `searchConfluence` (CQL) |
-| Jira search | `searchJiraIssuesUsingJql` (JQL) |
+| Jira search | `searchJiraIssuesUsingJql` |
 | Single issue | `getJiraIssue` |
-
-Example Confluence CQL if ID fetch fails:
-
-```text
-space = GCX AND title ~ "Jira hygine tracker Fields"
-```
-
-## Related skills
-
-- Company knowledge search patterns: Atlassian plugin skill `search-company-knowledge` (parallel search and fetch workflow).
+| Confluence page | `getConfluenceContent` |
 
 ## Additional resources
 
-- Cached field catalog (sync from Confluence): [`reference.md`](reference.md)
+- Rules, JQL, TPM list: [`reference.md`](reference.md)
